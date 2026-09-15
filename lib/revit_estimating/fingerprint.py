@@ -35,7 +35,7 @@ def size_label(element):
 
 def strict_fingerprint(element):
     values = [
-        element.get("category"), element.get("family"), element.get("type"),
+        element.get("source_scope_key"), element.get("category"), element.get("family"), element.get("type"),
         element.get("system"), element.get("material"), element.get("level"),
         element.get("mark"), size_label(element),
         _rounded_location(element.get("location"), 0.10),
@@ -45,7 +45,7 @@ def strict_fingerprint(element):
 
 def loose_fingerprint(element):
     values = [
-        element.get("category"), element.get("family"), element.get("level"),
+        element.get("source_scope_key"), element.get("category"), element.get("family"), element.get("level"),
         element.get("mark"), _rounded_location(element.get("location"), 0.50),
     ]
     return sha256_text("|".join([_norm(x) for x in values]))
@@ -69,7 +69,25 @@ def _location_score(left, right):
     return 0.0
 
 
+def _same_scope(left, right):
+    """Prevent inferred recreated-element matches from crossing model/link scopes."""
+    if bool(left.get("is_linked")) != bool(right.get("is_linked")):
+        return False
+    left_scope = to_text(left.get("source_scope_key")).strip()
+    right_scope = to_text(right.get("source_scope_key")).strip()
+    if left_scope and right_scope:
+        return left_scope == right_scope
+    if bool(left.get("is_linked")):
+        left_link = to_text(left.get("link_instance_unique_id")).strip()
+        right_link = to_text(right.get("link_instance_unique_id")).strip()
+        if left_link and right_link:
+            return left_link == right_link
+    return True
+
+
 def similarity_score(left, right):
+    if not _same_scope(left, right):
+        return 0.0
     if _norm(left.get("category")) != _norm(right.get("category")):
         return 0.0
     score = 0.25
