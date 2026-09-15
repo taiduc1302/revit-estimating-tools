@@ -18,5 +18,5 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Run dependency-free unit tests
         run: python -m unittest discover -s tests -v
-      - name: Compile dependency-free core
-        run: python -m compileall -q lib tests
+      - name: Compile dependency-free core and tools
+        run: python -m compileall -q lib tests tools
