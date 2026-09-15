@@ -4,13 +4,12 @@ from __future__ import absolute_import, division, print_function
 
 from . import SCHEMA_VERSION
 from .aggregation import quantity_delta
-from .fingerprint import similarity_score
+from .fingerprint import similarity_score, size_label
 from .utils import nested_get, is_number, to_text, rounded
 
 COMPARISON_FIELDS = [
     "family", "type", "system", "material", "level", "workset", "phase_created",
-    "phase_demolished", "design_option", "mark", "size.diameter_mm", "size.width_mm",
-    "size.height_mm", "size.size_text", "quantities.length_m", "quantities.area_m2",
+    "phase_demolished", "design_option", "mark", "quantities.length_m", "quantities.area_m2",
     "quantities.volume_m3", "primary_quantity_type", "primary_quantity_value", "primary_quantity_unit"
 ]
 
@@ -28,6 +27,11 @@ def field_changes(left, right):
         after = nested_get(right, field)
         if not _equal(before, after):
             changes.append({"field": field, "before": before, "after": after})
+
+    before_size = size_label(left)
+    after_size = size_label(right)
+    if before_size != after_size:
+        changes.append({"field": "size", "before": before_size, "after": after_size})
     return changes
 
 
