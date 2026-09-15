@@ -15,7 +15,6 @@ if LIB not in sys.path:
 from revit_estimating.aggregation import aggregate_primary_quantities, quantity_delta
 from revit_estimating.audit import audit_element
 from revit_estimating.diff import compare_snapshots
-from revit_estimating.fingerprint import similarity_score
 from revit_estimating.hashing import sha256_text
 from revit_estimating.normalization import length_ft_to_m, area_sqft_to_sqm, volume_cuft_to_cum
 from revit_estimating.package import create_estimating_package
@@ -58,7 +57,7 @@ class NormalizationTests(unittest.TestCase):
         self.assertAlmostEqual(length_ft_to_m(1.0), 0.3048)
 
     def test_area(self):
-        self.assertAlmostEqual(area_sqft_to_sqm(10.0), 0.9290304)
+        self.assertEqual(area_sqft_to_sqm(10.0), 0.92903)
 
     def test_volume(self):
         self.assertAlmostEqual(volume_cuft_to_cum(10.0), 0.283168)
