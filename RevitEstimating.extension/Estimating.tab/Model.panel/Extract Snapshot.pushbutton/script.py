@@ -4,7 +4,7 @@ from __future__ import print_function
 import os
 import sys
 
-from pyrevit import forms, revit, script
+from pyrevit import DB, forms, revit, script
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 LIB = os.path.join(ROOT, "lib")
@@ -29,7 +29,18 @@ started_at = utc_now_iso()
 result = extract_model(revit.doc, getattr(revit.doc, "Application", None))
 issues = audit_model(result["elements"], result["link_issues"])
 metadata = result["model_metadata"]
+
 project_name = metadata.get("project_name") or metadata.get("host_document") or "Model"
+try:
+    project_param = revit.doc.ProjectInformation.get_Parameter(DB.BuiltInParameter.PROJECT_NAME)
+    if project_param and project_param.HasValue:
+        resolved_name = project_param.AsString()
+        if resolved_name:
+            project_name = resolved_name
+            metadata["project_name"] = resolved_name
+except Exception:
+    pass
+
 manifest = build_manifest(
     project_name=project_name,
     model_metadata=metadata,
