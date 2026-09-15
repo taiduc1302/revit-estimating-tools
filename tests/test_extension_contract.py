@@ -13,6 +13,8 @@ BUTTON_DIRS = [
     os.path.join(EXTENSION, "Estimating.tab", "Changes.panel", "Compare Revision.pushbutton"),
     os.path.join(EXTENSION, "Estimating.tab", "Export.panel", "Estimating Package.pushbutton"),
 ]
+MODEL_BUTTON_DIRS = BUTTON_DIRS[:2]
+FILE_BUTTON_DIRS = BUTTON_DIRS[2:]
 BUTTON_SCRIPTS = [os.path.join(path, "script.py") for path in BUTTON_DIRS]
 
 
@@ -54,6 +56,20 @@ class ExtensionContractTests(unittest.TestCase):
             self.assertIn("min_revit_version: 2021", content, path)
             self.assertIn("engine:", content, path)
             self.assertIn("clean: true", content, path)
+
+    def test_model_commands_require_project_document(self):
+        for button_dir in MODEL_BUTTON_DIRS:
+            path = os.path.join(button_dir, "bundle.yaml")
+            with open(path, "r") as stream:
+                content = stream.read().lower()
+            self.assertIn("context: doc-project", content, path)
+
+    def test_file_commands_do_not_require_project_document(self):
+        for button_dir in FILE_BUTTON_DIRS:
+            path = os.path.join(button_dir, "bundle.yaml")
+            with open(path, "r") as stream:
+                content = stream.read().lower()
+            self.assertNotIn("context: doc-project", content, path)
 
     def test_no_company_specific_name(self):
         forbidden = "tybo"
