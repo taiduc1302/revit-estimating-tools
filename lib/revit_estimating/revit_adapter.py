@@ -170,6 +170,13 @@ def _selected_parameters(element, type_element, doc):
     }
 
 
+def _source_scope_key(context):
+    """Stable logical model/link scope for comparing snapshots across Save As/renames."""
+    if context.get("is_linked"):
+        return "LINK:%s" % (to_text(context.get("link_instance_unique_id")).strip() or to_text(context.get("link_instance_name")).strip())
+    return "HOST"
+
+
 def extract_element(element, context, spec):
     doc = context["doc"]
     type_element = _type_element(element, doc)
@@ -180,12 +187,11 @@ def extract_element(element, context, spec):
     quantities, primary_type, primary_value, primary_unit = _quantities(element, spec)
     unique_id = to_text(getattr(element, "UniqueId", ""))
     link_uid = context.get("link_instance_unique_id")
-    key_parts = [context.get("document_id")]
-    if link_uid:
-        key_parts.append(link_uid)
-    key_parts.append(unique_id or to_text(element_id_value(element.Id)))
+    scope_key = _source_scope_key(context)
+    key_parts = [scope_key, unique_id or to_text(element_id_value(element.Id))]
     dto = {
         "element_key": ":".join([to_text(x) for x in key_parts if x]),
+        "source_scope_key": scope_key,
         "source_document": context.get("source_document"),
         "source_document_id": context.get("document_id"),
         "source_document_identity": context.get("document_identity"),
@@ -224,7 +230,7 @@ def extract_element(element, context, spec):
 def model_metadata(host_doc, contexts, app=None):
     try:
         project_info = host_doc.ProjectInformation
-        project_name = _element_name(project_info) or to_text(host_doc.Title)
+        project_name = first_text([project_info], host_doc, ["PROJECT_NAME"], ["Project Name"]) or to_text(host_doc.Title)
         project_number = first_text([project_info], host_doc, ["PROJECT_NUMBER"], ["Project Number"])
     except Exception:
         project_name = to_text(host_doc.Title)
@@ -234,6 +240,7 @@ def model_metadata(host_doc, contexts, app=None):
     for context in contexts:
         if context.get("is_linked"):
             linked.append({
+                "source_scope_key": _source_scope_key(context),
                 "document": context.get("source_document"),
                 "document_identity": context.get("document_identity"),
                 "link_instance_name": context.get("link_instance_name"),
@@ -243,6 +250,7 @@ def model_metadata(host_doc, contexts, app=None):
     return {
         "project_name": project_name,
         "project_number": project_number,
+        "host_source_scope_key": "HOST",
         "host_document": to_text(host_doc.Title),
         "host_document_identity": contexts[0].get("document_identity") if contexts else None,
         "revit_version": to_text(getattr(application, "VersionNumber", "")),
