@@ -22,17 +22,17 @@ class ComparisonExportTests(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.baseline_path = os.path.join(ROOT, "tests", "fixtures", "baseline_snapshot.json")
         self.current_path = os.path.join(ROOT, "tests", "fixtures", "current_snapshot.json")
+        baseline = read_json(self.baseline_path)
+        current = read_json(self.current_path)
+        self.result = compare_snapshots(baseline, current)
 
     def tearDown(self):
         shutil.rmtree(self.root)
 
     def test_manifest_hashes_inputs_and_outputs(self):
-        baseline = read_json(self.baseline_path)
-        current = read_json(self.current_path)
-        result = compare_snapshots(baseline, current)
         folder = write_revision_comparison(
             self.root,
-            result,
+            self.result,
             baseline_path=self.baseline_path,
             current_path=self.current_path,
         )
@@ -43,6 +43,27 @@ class ComparisonExportTests(unittest.TestCase):
         self.assertEqual(manifest["current_snapshot"]["status"], "HASHED")
         for name in ("revision_diff.json", "quantity_deltas.csv", "element_changes.csv"):
             self.assertEqual(manifest["evidence_hashes"][name], sha256_file(os.path.join(folder, name)))
+
+    def test_same_timestamp_creates_versioned_comparison_folder(self):
+        created_at = "2026-09-15T12:00:00Z"
+        first = write_revision_comparison(
+            self.root,
+            self.result,
+            baseline_path=self.baseline_path,
+            current_path=self.current_path,
+            created_at=created_at,
+        )
+        second = write_revision_comparison(
+            self.root,
+            self.result,
+            baseline_path=self.baseline_path,
+            current_path=self.current_path,
+            created_at=created_at,
+        )
+        self.assertNotEqual(first, second)
+        self.assertTrue(second.endswith("_v001"))
+        self.assertTrue(os.path.isdir(first))
+        self.assertTrue(os.path.isdir(second))
 
 
 if __name__ == "__main__":
