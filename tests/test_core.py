@@ -76,6 +76,14 @@ class AggregationTests(unittest.TestCase):
         self.assertEqual(rows[0]["quantity"], 22.0)
         self.assertEqual(rows[0]["element_count"], 2)
 
+    def test_aggregation_ignores_size_display_text_when_numeric_size_matches(self):
+        first = element(length=10)
+        second = element(key="HOST:u2", unique_id="u2", length=12)
+        second["size"]["size_text"] = "0.30 m"
+        rows = aggregate_primary_quantities([first, second])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["quantity"], 22.0)
+
     def test_quantity_delta(self):
         rows = quantity_delta([element(length=10)], [element(length=13)])
         self.assertEqual(len(rows), 1)
@@ -96,6 +104,24 @@ class DiffTests(unittest.TestCase):
         result = compare_snapshots(snapshot([element(length=10)]), snapshot([element(length=12)]))
         self.assertEqual(result["summary"]["MODIFIED"], 1)
         self.assertEqual(result["summary"]["ADDED"], 0)
+
+    def test_display_size_text_change_is_not_semantic_change(self):
+        before = element()
+        after = element()
+        after["size"]["size_text"] = "0.30 m"
+        result = compare_snapshots(snapshot([before]), snapshot([after]))
+        self.assertEqual(result["summary"]["MODIFIED"], 0)
+        self.assertEqual(result["summary"]["UNCHANGED"], 1)
+
+    def test_numeric_size_change_is_semantic_change(self):
+        before = element()
+        after = element()
+        after["size"]["diameter_mm"] = 375.0
+        after["size"]["size_text"] = "375 mm"
+        result = compare_snapshots(snapshot([before]), snapshot([after]))
+        self.assertEqual(result["summary"]["MODIFIED"], 1)
+        fields = [item.get("field") for item in result["modified"][0]["changes"]]
+        self.assertIn("size", fields)
 
     def test_exact_identity_survives_document_rename(self):
         before = element(length=10, source_document="Before.rvt")
