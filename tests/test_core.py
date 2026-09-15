@@ -15,20 +15,25 @@ if LIB not in sys.path:
 from revit_estimating.aggregation import aggregate_primary_quantities, quantity_delta
 from revit_estimating.audit import audit_element
 from revit_estimating.diff import compare_snapshots
+from revit_estimating.fingerprint import similarity_score
 from revit_estimating.hashing import sha256_text
 from revit_estimating.normalization import length_ft_to_m, area_sqft_to_sqm, volume_cuft_to_cum
 from revit_estimating.package import create_estimating_package
 from revit_estimating.serialization import canonical_json
 from revit_estimating.snapshot import write_snapshot_package
 from revit_estimating.manifest import build_manifest
+from revit_estimating.validation import validate_snapshot_folder, validation_passed
 
 
-def element(key="doc:u1", unique_id="u1", length=10.0, material="PVC", mark="P-1", location=None):
+def element(key="HOST:u1", unique_id="u1", length=10.0, material="PVC", mark="P-1", location=None,
+            source_document="Model.rvt", source_scope_key="HOST", is_linked=False, link_uid=None):
     return {
         "element_key": key,
-        "source_document": "Model.rvt",
+        "source_scope_key": source_scope_key,
+        "source_document": source_document,
         "source_document_id": "doc",
-        "is_linked": False,
+        "is_linked": is_linked,
+        "link_instance_unique_id": link_uid,
         "element_id": 1,
         "unique_id": unique_id,
         "category": "Pipes",
@@ -77,7 +82,7 @@ class AuditTests(unittest.TestCase):
 
 class AggregationTests(unittest.TestCase):
     def test_aggregation(self):
-        rows = aggregate_primary_quantities([element(length=10), element(key="doc:u2", unique_id="u2", length=12)])
+        rows = aggregate_primary_quantities([element(length=10), element(key="HOST:u2", unique_id="u2", length=12)])
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["quantity"], 22.0)
         self.assertEqual(rows[0]["element_count"], 2)
@@ -86,6 +91,15 @@ class AggregationTests(unittest.TestCase):
         rows = quantity_delta([element(length=10)], [element(length=13)])
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["delta"], 3.0)
+
+    def test_quantity_delta_survives_document_rename(self):
+        before = element(length=10, source_document="Model_A.rvt")
+        after = element(length=13, source_document="Model_B.rvt")
+        rows = quantity_delta([before], [after])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["delta"], 3.0)
+        self.assertEqual(rows[0]["baseline_source_document"], "Model_A.rvt")
+        self.assertEqual(rows[0]["current_source_document"], "Model_B.rvt")
 
 
 class DiffTests(unittest.TestCase):
@@ -96,22 +110,37 @@ class DiffTests(unittest.TestCase):
         self.assertEqual(result["summary"]["MODIFIED"], 1)
         self.assertEqual(result["summary"]["ADDED"], 0)
 
+    def test_exact_identity_survives_document_rename(self):
+        before = element(length=10, source_document="Before.rvt")
+        after = element(length=12, source_document="After.rvt")
+        result = compare_snapshots({"elements": [before]}, {"elements": [after]})
+        self.assertEqual(result["summary"]["MODIFIED"], 1)
+        self.assertEqual(result["summary"]["ADDED"], 0)
+        self.assertEqual(result["summary"]["REMOVED"], 0)
+
     def test_possible_recreated(self):
-        before = element(key="doc:old", unique_id="old", length=10)
-        after = element(key="doc:new", unique_id="new", length=10)
+        before = element(key="HOST:old", unique_id="old", length=10)
+        after = element(key="HOST:new", unique_id="new", length=10)
         result = compare_snapshots({"elements": [before]}, {"elements": [after]})
         self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 1)
         self.assertEqual(result["summary"]["ADDED"], 0)
         self.assertEqual(result["summary"]["REMOVED"], 0)
 
     def test_different_category_not_recreated(self):
-        before = element(key="doc:old", unique_id="old")
-        after = element(key="doc:new", unique_id="new")
+        before = element(key="HOST:old", unique_id="old")
+        after = element(key="HOST:new", unique_id="new")
         after["category"] = "Ducts"
         result = compare_snapshots({"elements": [before]}, {"elements": [after]})
         self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 0)
         self.assertEqual(result["summary"]["ADDED"], 1)
         self.assertEqual(result["summary"]["REMOVED"], 1)
+
+    def test_recreated_match_does_not_cross_link_instances(self):
+        before = element(key="LINK:A:old", unique_id="old", source_scope_key="LINK:A", is_linked=True, link_uid="A")
+        after = element(key="LINK:B:new", unique_id="new", source_scope_key="LINK:B", is_linked=True, link_uid="B")
+        self.assertEqual(similarity_score(before, after), 0.0)
+        result = compare_snapshots({"elements": [before]}, {"elements": [after]})
+        self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 0)
 
 
 class SerializationTests(unittest.TestCase):
@@ -129,10 +158,13 @@ class PackageTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.root)
 
-    def test_snapshot_and_zip(self):
+    def _build_snapshot(self):
         rows = [element()]
         manifest = build_manifest("Test", {"host_document": "Model.rvt"}, 1, 0, created_at="2026-09-15T00:00:00Z")
-        folder = write_snapshot_package(self.root, manifest, rows, [])
+        return write_snapshot_package(self.root, manifest, rows, [])
+
+    def test_snapshot_and_zip(self):
+        folder = self._build_snapshot()
         self.assertTrue(os.path.isfile(os.path.join(folder, "manifest.json")))
         with open(os.path.join(folder, "manifest.json"), "r") as stream:
             saved = json.load(stream)
@@ -140,6 +172,20 @@ class PackageTests(unittest.TestCase):
         self.assertIn("raw_snapshot.json", saved["evidence_hashes"])
         zip_path = create_estimating_package(folder)
         self.assertTrue(os.path.isfile(zip_path))
+
+    def test_snapshot_validator_passes_clean_package(self):
+        folder = self._build_snapshot()
+        findings = validate_snapshot_folder(folder)
+        self.assertTrue(validation_passed(findings), findings)
+
+    def test_snapshot_validator_detects_tampering(self):
+        folder = self._build_snapshot()
+        path = os.path.join(folder, "elements.csv")
+        with open(path, "a") as stream:
+            stream.write("tampered\n")
+        findings = validate_snapshot_folder(folder)
+        self.assertFalse(validation_passed(findings))
+        self.assertIn("HASH_MISMATCH", set(item["code"] for item in findings))
 
 
 if __name__ == "__main__":
