@@ -14,25 +14,33 @@ from revit_estimating.comparison_export import write_revision_comparison
 from revit_estimating.diff import compare_snapshots
 from revit_estimating.package import create_estimating_package
 from revit_estimating.snapshot import load_raw_snapshot
-from revit_estimating.validation import validate_snapshot_folder, validation_passed
+from revit_estimating.validation import validate_snapshot_folder, validate_comparison_folder, validation_passed
 
 
 def print_json(payload):
     print(json.dumps(payload, indent=2, sort_keys=True))
 
 
-def validate_command(args):
-    findings = validate_snapshot_folder(args.folder)
+def _report_validation(findings, label, json_output):
     passed = validation_passed(findings)
-    if args.json_output:
+    if json_output:
         print_json({"passed": passed, "findings": findings})
     elif passed:
-        print("PASS: snapshot package is internally consistent")
+        print("PASS: %s is internally consistent" % label)
     else:
-        print("FAIL: snapshot package has %s finding(s)" % len(findings))
+        print("FAIL: %s has %s finding(s)" % (label, len(findings)))
         for item in findings:
             print("- %s: %s" % (item.get("code"), item.get("message")))
     return 0 if passed else 1
+
+
+def validate_command(args):
+    return _report_validation(validate_snapshot_folder(args.folder), "snapshot package", args.json_output)
+
+
+def validate_comparison_command(args):
+    findings = validate_comparison_folder(args.folder, verify_inputs=not args.skip_input_files)
+    return _report_validation(findings, "revision comparison package", args.json_output)
 
 
 def compare_command(args):
@@ -81,19 +89,25 @@ def build_parser():
     parser = argparse.ArgumentParser(description="Offline tools for Revit estimating snapshots.")
     commands = parser.add_subparsers(dest="command")
 
-    validate = commands.add_parser("validate")
+    validate = commands.add_parser("validate", help="Validate an exported snapshot package.")
     validate.add_argument("folder")
     validate.add_argument("--json", action="store_true", dest="json_output")
     validate.set_defaults(handler=validate_command)
 
-    compare = commands.add_parser("compare")
+    validate_comparison = commands.add_parser("validate-comparison", help="Validate a revision comparison package.")
+    validate_comparison.add_argument("folder")
+    validate_comparison.add_argument("--skip-input-files", action="store_true", help="Verify generated comparison evidence but do not require original input snapshots to remain at their recorded paths.")
+    validate_comparison.add_argument("--json", action="store_true", dest="json_output")
+    validate_comparison.set_defaults(handler=validate_comparison_command)
+
+    compare = commands.add_parser("compare", help="Compare two raw_snapshot.json files.")
     compare.add_argument("baseline")
     compare.add_argument("current")
     compare.add_argument("--output")
     compare.add_argument("--json", action="store_true", dest="json_output")
     compare.set_defaults(handler=compare_command)
 
-    package = commands.add_parser("package")
+    package = commands.add_parser("package", help="Create a ZIP from a valid snapshot package.")
     package.add_argument("folder")
     package.add_argument("--output")
     package.add_argument("--json", action="store_true", dest="json_output")
