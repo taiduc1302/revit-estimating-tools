@@ -2,6 +2,10 @@
 
 Schema version: `0.1`
 
+## Compatibility rule
+
+Snapshot comparison is fail-closed. Both snapshots must declare the currently supported `schema_version`, their `elements` value must be a list, and every element must have a unique non-empty `element_key`. Unsupported or missing schema versions and duplicate identities stop comparison instead of producing a partial delta report.
+
 ## Element identity
 
 - `element_key` — logical source scope plus Revit `UniqueId` (or ElementId fallback).
@@ -42,7 +46,17 @@ This design prevents a simple `Save As` or filename change from turning an other
 
 ## Snapshot integrity
 
-`manifest.json` records hashes for exported evidence files. `tools/validate_snapshot.py` checks required files, hashes, duplicate element keys, and declared element count before packaging.
+`manifest.json` records hashes for exported evidence files. Offline validation checks:
+
+- all required package files exist;
+- manifest and raw snapshot schema versions agree and are supported;
+- every declared evidence hash matches the file on disk;
+- `elements` and `audit_issues` have the expected container types;
+- `element_key` values are present and unique;
+- `source_scope_key` is present for stable revision comparison;
+- manifest/snapshot element and audit counts agree with exported records.
+
+Use `python tools/revit_estimating.py validate <snapshot-folder>` or the focused `tools/validate_snapshot.py` command.
 
 ## Validation status
 

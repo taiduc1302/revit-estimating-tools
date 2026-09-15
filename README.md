@@ -40,10 +40,33 @@ A snapshot package contains:
 
 All exported snapshots start with status `NOT_ESTIMATOR_VALIDATED`.
 
+## Offline CLI
+
+The dependency-free core can be used without Autodesk Revit:
+
+```bash
+python tools/revit_estimating.py validate <snapshot-folder>
+python tools/revit_estimating.py compare baseline/raw_snapshot.json current/raw_snapshot.json --output comparisons
+python tools/revit_estimating.py package <snapshot-folder>
+```
+
+Add `--json` to any command for machine-readable output. The comparison command rejects unsupported snapshot schema versions and duplicate element identities instead of silently producing a partial result.
+
+The older `tools/validate_snapshot.py` entry point remains available as a focused snapshot-validator command.
+
+## Revision identity
+
+Revision comparison uses stable logical scope plus Revit `UniqueId`:
+
+- host elements: `HOST:<UniqueId>`;
+- linked elements: `LINK:<link-instance-UniqueId>:<UniqueId>`.
+
+The RVT filename/path is retained as evidence but is not part of the primary comparison identity, so normal `Save As` or filename changes do not redefine every host element. Inferred recreated-element matches are constrained to the same host/link scope and remain labelled `POSSIBLE_RECREATED`.
+
 ## Safety model
 
-Core extraction is read-only. Commands do not open Revit transactions or intentionally alter model elements, parameters, project settings, or links. Model audit findings are advisory and must be reviewed by a qualified estimator.
+Core extraction is read-only. Commands do not open Revit transactions or intentionally alter model elements, parameters, project settings, or links. Snapshot packaging performs integrity validation first. Model audit and inferred revision matches are advisory and must be reviewed by a qualified estimator.
 
 ## Development status
 
-V0.1 is an early development release. Automated tests validate the dependency-free core outside Revit, but live Revit/pyRevit validation is still required for supported Revit versions.
+V0.1 is an early development release. Automated tests, golden fixtures and offline integrity checks validate the dependency-free core outside Revit, but live Revit/pyRevit validation is still required before production use.

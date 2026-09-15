@@ -2,6 +2,7 @@
 """Deterministic snapshot revision comparison."""
 from __future__ import absolute_import, division, print_function
 
+from . import SCHEMA_VERSION
 from .aggregation import quantity_delta
 from .fingerprint import similarity_score
 from .utils import nested_get, is_number, to_text, rounded
@@ -30,6 +31,37 @@ def field_changes(left, right):
     return changes
 
 
+def _snapshot_elements(snapshot, label):
+    if not isinstance(snapshot, dict):
+        raise ValueError("%s snapshot must be a JSON object." % label)
+    schema_version = to_text(snapshot.get("schema_version")).strip()
+    if not schema_version:
+        raise ValueError("%s snapshot is missing schema_version." % label)
+    if schema_version != SCHEMA_VERSION:
+        raise ValueError(
+            "%s snapshot schema_version %s is not supported by this tool; expected %s."
+            % (label, schema_version, SCHEMA_VERSION)
+        )
+    elements = snapshot.get("elements")
+    if not isinstance(elements, list):
+        raise ValueError("%s snapshot elements must be a list." % label)
+    return elements
+
+
+def _index_elements(elements, label):
+    indexed = {}
+    for position, element in enumerate(elements):
+        if not isinstance(element, dict):
+            raise ValueError("%s snapshot element at index %s is not an object." % (label, position))
+        key = to_text(element.get("element_key")).strip()
+        if not key:
+            raise ValueError("%s snapshot element at index %s is missing element_key." % (label, position))
+        if key in indexed:
+            raise ValueError("%s snapshot contains duplicate element_key: %s" % (label, key))
+        indexed[key] = element
+    return indexed
+
+
 def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10):
     pairs = []
     used_added = set()
@@ -54,10 +86,11 @@ def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10):
 
 
 def compare_snapshots(baseline_snapshot, current_snapshot):
-    baseline_elements = baseline_snapshot.get("elements") or []
-    current_elements = current_snapshot.get("elements") or []
-    baseline = dict((x.get("element_key"), x) for x in baseline_elements if x.get("element_key"))
-    current = dict((x.get("element_key"), x) for x in current_elements if x.get("element_key"))
+    """Compare two compatible snapshots and fail closed on identity/schema defects."""
+    baseline_elements = _snapshot_elements(baseline_snapshot, "Baseline")
+    current_elements = _snapshot_elements(current_snapshot, "Current")
+    baseline = _index_elements(baseline_elements, "Baseline")
+    current = _index_elements(current_elements, "Current")
 
     exact_keys = sorted(set(baseline.keys()) & set(current.keys()))
     added_keys = sorted(set(current.keys()) - set(baseline.keys()))
@@ -113,7 +146,7 @@ def compare_snapshots(baseline_snapshot, current_snapshot):
         "BASELINE_ELEMENTS": len(baseline_elements), "CURRENT_ELEMENTS": len(current_elements),
     }
     return {
-        "schema_version": "0.1",
+        "schema_version": SCHEMA_VERSION,
         "summary": summary,
         "added": final_added,
         "removed": final_removed,

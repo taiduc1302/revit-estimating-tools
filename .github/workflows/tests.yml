@@ -18,5 +18,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Run dependency-free unit tests
         run: python -m unittest discover -s tests -v
+      - name: Run golden CLI revision comparison
+        run: python tools/revit_estimating.py compare tests/fixtures/baseline_snapshot.json tests/fixtures/current_snapshot.json --output .ci-output --json
       - name: Compile dependency-free core and tools
         run: python -m compileall -q lib tests tools

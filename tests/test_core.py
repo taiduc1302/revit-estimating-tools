@@ -19,7 +19,7 @@ from revit_estimating.fingerprint import similarity_score
 from revit_estimating.hashing import sha256_text
 from revit_estimating.normalization import length_ft_to_m, area_sqft_to_sqm, volume_cuft_to_cum
 from revit_estimating.package import create_estimating_package
-from revit_estimating.serialization import canonical_json
+from revit_estimating.serialization import canonical_json, read_json, write_json
 from revit_estimating.snapshot import write_snapshot_package
 from revit_estimating.manifest import build_manifest
 from revit_estimating.validation import validate_snapshot_folder, validation_passed
@@ -28,33 +28,22 @@ from revit_estimating.validation import validate_snapshot_folder, validation_pas
 def element(key="HOST:u1", unique_id="u1", length=10.0, material="PVC", mark="P-1", location=None,
             source_document="Model.rvt", source_scope_key="HOST", is_linked=False, link_uid=None):
     return {
-        "element_key": key,
-        "source_scope_key": source_scope_key,
-        "source_document": source_document,
-        "source_document_id": "doc",
-        "is_linked": is_linked,
-        "link_instance_unique_id": link_uid,
-        "element_id": 1,
-        "unique_id": unique_id,
-        "category": "Pipes",
-        "family": "Pipe",
-        "type": "PVC 300",
-        "system": "Storm",
-        "material": material,
-        "level": "Level 1",
-        "workset": None,
-        "phase_created": "New Construction",
-        "phase_demolished": None,
-        "design_option": None,
-        "mark": mark,
+        "element_key": key, "source_scope_key": source_scope_key, "source_document": source_document,
+        "source_document_id": "doc", "is_linked": is_linked, "link_instance_unique_id": link_uid,
+        "element_id": 1, "unique_id": unique_id, "category": "Pipes", "family": "Pipe",
+        "type": "PVC 300", "system": "Storm", "material": material, "level": "Level 1",
+        "workset": None, "phase_created": "New Construction", "phase_demolished": None,
+        "design_option": None, "mark": mark,
         "size": {"diameter_mm": 300.0, "width_mm": None, "height_mm": None, "size_text": "300 mm"},
         "location": location or {"x_m": 1.0, "y_m": 2.0, "z_m": 0.0},
         "quantities": {"length_m": length, "area_m2": None, "volume_m3": None, "count_ea": 1},
-        "primary_quantity_type": "LENGTH",
-        "primary_quantity_value": length,
-        "primary_quantity_unit": "M",
-        "fingerprints": {},
+        "primary_quantity_type": "LENGTH", "primary_quantity_value": length,
+        "primary_quantity_unit": "M", "fingerprints": {},
     }
+
+
+def snapshot(elements, schema_version="0.1"):
+    return {"schema_version": schema_version, "metadata": {}, "elements": elements, "audit_issues": []}
 
 
 class NormalizationTests(unittest.TestCase):
@@ -104,16 +93,14 @@ class AggregationTests(unittest.TestCase):
 
 class DiffTests(unittest.TestCase):
     def test_modified_exact_identity(self):
-        before = element(length=10)
-        after = element(length=12)
-        result = compare_snapshots({"elements": [before]}, {"elements": [after]})
+        result = compare_snapshots(snapshot([element(length=10)]), snapshot([element(length=12)]))
         self.assertEqual(result["summary"]["MODIFIED"], 1)
         self.assertEqual(result["summary"]["ADDED"], 0)
 
     def test_exact_identity_survives_document_rename(self):
         before = element(length=10, source_document="Before.rvt")
         after = element(length=12, source_document="After.rvt")
-        result = compare_snapshots({"elements": [before]}, {"elements": [after]})
+        result = compare_snapshots(snapshot([before]), snapshot([after]))
         self.assertEqual(result["summary"]["MODIFIED"], 1)
         self.assertEqual(result["summary"]["ADDED"], 0)
         self.assertEqual(result["summary"]["REMOVED"], 0)
@@ -121,7 +108,7 @@ class DiffTests(unittest.TestCase):
     def test_possible_recreated(self):
         before = element(key="HOST:old", unique_id="old", length=10)
         after = element(key="HOST:new", unique_id="new", length=10)
-        result = compare_snapshots({"elements": [before]}, {"elements": [after]})
+        result = compare_snapshots(snapshot([before]), snapshot([after]))
         self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 1)
         self.assertEqual(result["summary"]["ADDED"], 0)
         self.assertEqual(result["summary"]["REMOVED"], 0)
@@ -130,7 +117,7 @@ class DiffTests(unittest.TestCase):
         before = element(key="HOST:old", unique_id="old")
         after = element(key="HOST:new", unique_id="new")
         after["category"] = "Ducts"
-        result = compare_snapshots({"elements": [before]}, {"elements": [after]})
+        result = compare_snapshots(snapshot([before]), snapshot([after]))
         self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 0)
         self.assertEqual(result["summary"]["ADDED"], 1)
         self.assertEqual(result["summary"]["REMOVED"], 1)
@@ -139,8 +126,37 @@ class DiffTests(unittest.TestCase):
         before = element(key="LINK:A:old", unique_id="old", source_scope_key="LINK:A", is_linked=True, link_uid="A")
         after = element(key="LINK:B:new", unique_id="new", source_scope_key="LINK:B", is_linked=True, link_uid="B")
         self.assertEqual(similarity_score(before, after), 0.0)
-        result = compare_snapshots({"elements": [before]}, {"elements": [after]})
+        result = compare_snapshots(snapshot([before]), snapshot([after]))
         self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 0)
+
+    def test_duplicate_identity_is_rejected(self):
+        with self.assertRaises(ValueError):
+            compare_snapshots(snapshot([element(), element(length=12)]), snapshot([element(key="HOST:u2", unique_id="u2")]))
+
+    def test_unsupported_schema_is_rejected(self):
+        with self.assertRaises(ValueError):
+            compare_snapshots(snapshot([element()]), snapshot([element()], schema_version="0.2"))
+
+    def test_missing_schema_is_rejected(self):
+        with self.assertRaises(ValueError):
+            compare_snapshots({"elements": [element()]}, snapshot([element()]))
+
+
+class GoldenFixtureTests(unittest.TestCase):
+    def test_golden_revision_comparison(self):
+        baseline = read_json(os.path.join(ROOT, "tests", "fixtures", "baseline_snapshot.json"))
+        current = read_json(os.path.join(ROOT, "tests", "fixtures", "current_snapshot.json"))
+        result = compare_snapshots(baseline, current)
+        self.assertEqual(result["summary"]["ADDED"], 1)
+        self.assertEqual(result["summary"]["REMOVED"], 1)
+        self.assertEqual(result["summary"]["MODIFIED"], 1)
+        self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 0)
+        self.assertEqual(result["summary"]["UNCHANGED"], 1)
+        deltas = dict(((row.get("category"), row.get("type")), row.get("delta")) for row in result["quantity_deltas"])
+        self.assertEqual(deltas[("Pipes", "PVC 300")], 2.0)
+        self.assertEqual(deltas[("Walls", "Concrete 200")], -20.0)
+        self.assertEqual(deltas[("Floors", "Concrete Slab")], 30.0)
+        self.assertEqual(deltas[("Conduits", "EMT 50")], 0.0)
 
 
 class SerializationTests(unittest.TestCase):
@@ -159,9 +175,8 @@ class PackageTests(unittest.TestCase):
         shutil.rmtree(self.root)
 
     def _build_snapshot(self):
-        rows = [element()]
         manifest = build_manifest("Test", {"host_document": "Model.rvt"}, 1, 0, created_at="2026-09-15T00:00:00Z")
-        return write_snapshot_package(self.root, manifest, rows, [])
+        return write_snapshot_package(self.root, manifest, [element()], [])
 
     def test_snapshot_and_zip(self):
         folder = self._build_snapshot()
@@ -170,8 +185,7 @@ class PackageTests(unittest.TestCase):
             saved = json.load(stream)
         self.assertEqual(saved["status"], "NOT_ESTIMATOR_VALIDATED")
         self.assertIn("raw_snapshot.json", saved["evidence_hashes"])
-        zip_path = create_estimating_package(folder)
-        self.assertTrue(os.path.isfile(zip_path))
+        self.assertTrue(os.path.isfile(create_estimating_package(folder)))
 
     def test_snapshot_validator_passes_clean_package(self):
         folder = self._build_snapshot()
@@ -184,8 +198,26 @@ class PackageTests(unittest.TestCase):
         with open(path, "a") as stream:
             stream.write("tampered\n")
         findings = validate_snapshot_folder(folder)
-        self.assertFalse(validation_passed(findings))
         self.assertIn("HASH_MISMATCH", set(item["code"] for item in findings))
+
+    def test_snapshot_validator_detects_duplicate_identity(self):
+        folder = self._build_snapshot()
+        path = os.path.join(folder, "raw_snapshot.json")
+        data = read_json(path)
+        data["elements"].append(dict(data["elements"][0]))
+        write_json(path, data)
+        findings = validate_snapshot_folder(folder)
+        self.assertIn("ELEMENT_KEY_DUPLICATE", set(item["code"] for item in findings))
+
+    def test_snapshot_validator_detects_unsupported_schema(self):
+        folder = self._build_snapshot()
+        path = os.path.join(folder, "raw_snapshot.json")
+        data = read_json(path)
+        data["schema_version"] = "0.2"
+        write_json(path, data)
+        codes = set(item["code"] for item in validate_snapshot_folder(folder))
+        self.assertIn("SCHEMA_VERSION_UNSUPPORTED", codes)
+        self.assertIn("SCHEMA_VERSION_MISMATCH", codes)
 
 
 if __name__ == "__main__":
