@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Revit Estimating Snapshot Manifest","type":"object","required":["schema_version","tool","tool_version","status","created_at","project_name","model","element_count","audit_issue_count","evidence_hashes"],"properties":{"status":{"const":"NOT_ESTIMATOR_VALIDATED"},"evidence_hashes":{"type":"object"}}}

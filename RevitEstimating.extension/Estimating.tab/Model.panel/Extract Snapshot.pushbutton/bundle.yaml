@@ -1,0 +1,3 @@
+title: Extract Snapshot
+tooltip: Create a read-only estimating snapshot from the active model and loaded Revit links.
+author: Revit Estimating Tools

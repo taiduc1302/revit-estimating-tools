@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+
+import os
+import sys
+
+from pyrevit import forms, revit, script
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+LIB = os.path.join(ROOT, "lib")
+if LIB not in sys.path:
+    sys.path.insert(0, LIB)
+
+from revit_estimating import __version__
+from revit_estimating.audit import audit_model
+from revit_estimating.logging_utils import build_run_record, write_run_log
+from revit_estimating.manifest import build_manifest, utc_now_iso
+from revit_estimating.revit_adapter import extract_model
+from revit_estimating.snapshot import write_snapshot_package
+
+output = script.get_output()
+output.close_others()
+
+output_root = forms.pick_folder(title="Choose estimating snapshot output folder")
+if not output_root:
+    script.exit()
+
+started_at = utc_now_iso()
+result = extract_model(revit.doc, getattr(revit.doc, "Application", None))
+issues = audit_model(result["elements"], result["link_issues"])
+metadata = result["model_metadata"]
+project_name = metadata.get("project_name") or metadata.get("host_document") or "Model"
+manifest = build_manifest(
+    project_name=project_name,
+    model_metadata=metadata,
+    element_count=len(result["elements"]),
+    audit_count=len(issues),
+    extraction_config={"categories": "config/categories.json", "read_only": True},
+    created_at=started_at,
+)
+folder = write_snapshot_package(output_root, manifest, result["elements"], issues)
+write_run_log(folder, build_run_record(
+    "Extract Snapshot", metadata.get("host_document"), started_at,
+    element_count=len(result["elements"]), warning_count=len(issues), export_path=folder, tool_version=__version__
+))
+
+output.print_md("# Estimating Snapshot Created")
+output.print_md("**Folder:** `%s`  " % folder)
+output.print_md("**Elements:** %s  " % len(result["elements"]))
+output.print_md("**Audit issues:** %s  " % len(issues))
+output.print_md("**Status:** `NOT_ESTIMATOR_VALIDATED`")
