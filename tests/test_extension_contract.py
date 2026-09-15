@@ -7,12 +7,13 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXTENSION = os.path.join(ROOT, "RevitEstimating.extension")
 
-BUTTON_SCRIPTS = [
-    os.path.join(EXTENSION, "Estimating.tab", "Model.panel", "Model Audit.pushbutton", "script.py"),
-    os.path.join(EXTENSION, "Estimating.tab", "Model.panel", "Extract Snapshot.pushbutton", "script.py"),
-    os.path.join(EXTENSION, "Estimating.tab", "Changes.panel", "Compare Revision.pushbutton", "script.py"),
-    os.path.join(EXTENSION, "Estimating.tab", "Export.panel", "Estimating Package.pushbutton", "script.py"),
+BUTTON_DIRS = [
+    os.path.join(EXTENSION, "Estimating.tab", "Model.panel", "Model Audit.pushbutton"),
+    os.path.join(EXTENSION, "Estimating.tab", "Model.panel", "Extract Snapshot.pushbutton"),
+    os.path.join(EXTENSION, "Estimating.tab", "Changes.panel", "Compare Revision.pushbutton"),
+    os.path.join(EXTENSION, "Estimating.tab", "Export.panel", "Estimating Package.pushbutton"),
 ]
+BUTTON_SCRIPTS = [os.path.join(path, "script.py") for path in BUTTON_DIRS]
 
 
 class ExtensionContractTests(unittest.TestCase):
@@ -38,10 +39,26 @@ class ExtensionContractTests(unittest.TestCase):
             for token in forbidden:
                 self.assertNotIn(token, content, "%s contains %s" % (path, token))
 
+    def test_buttons_remain_default_ironpython_while_using_pyrevit_forms(self):
+        for path in BUTTON_SCRIPTS:
+            with open(path, "r") as stream:
+                first_line = stream.readline().strip().lower()
+            self.assertNotIn("python3", first_line, path)
+
+    def test_bundle_metadata_keeps_clean_engine_and_minimum_revit(self):
+        for button_dir in BUTTON_DIRS:
+            path = os.path.join(button_dir, "bundle.yaml")
+            self.assertTrue(os.path.isfile(path), path)
+            with open(path, "r") as stream:
+                content = stream.read().lower()
+            self.assertIn("min_revit_version: 2021", content, path)
+            self.assertIn("engine:", content, path)
+            self.assertIn("clean: true", content, path)
+
     def test_no_company_specific_name(self):
         forbidden = "tybo"
         checked = []
-        for base in (EXTENSION, os.path.join(ROOT, "lib"), os.path.join(ROOT, "docs"), os.path.join(ROOT, "config")):
+        for base in (EXTENSION, os.path.join(ROOT, "lib"), os.path.join(ROOT, "docs"), os.path.join(ROOT, "config"), os.path.join(ROOT, "tools")):
             for dirpath, _, filenames in os.walk(base):
                 for filename in filenames:
                     if not filename.lower().endswith((".py", ".md", ".json", ".yaml", ".yml")):
