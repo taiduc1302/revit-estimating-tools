@@ -4,6 +4,7 @@ from __future__ import absolute_import, print_function
 import datetime
 import os
 
+from . import SCHEMA_VERSION, __version__
 from .hashing import sha256_file
 from .serialization import ensure_dir, write_json, write_csv
 from .diff import flattened_change_rows
@@ -19,7 +20,17 @@ CHANGE_COLUMNS = [
 ]
 
 
+def _input_evidence(path):
+    if not path:
+        return None
+    absolute = os.path.abspath(path)
+    if not os.path.isfile(absolute):
+        return {"path": absolute, "sha256": None, "status": "FILE_NOT_FOUND"}
+    return {"path": absolute, "sha256": sha256_file(absolute), "status": "HASHED"}
+
+
 def write_revision_comparison(output_root, result, baseline_path=None, current_path=None):
+    created_at = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     stamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     folder = ensure_dir(os.path.join(output_root, "RevisionComparison_%s" % stamp))
     result_path = os.path.join(folder, "revision_diff.json")
@@ -30,11 +41,15 @@ def write_revision_comparison(output_root, result, baseline_path=None, current_p
     write_json(result_path, result)
     write_csv(deltas_path, result.get("quantity_deltas") or [], DELTA_COLUMNS)
     write_csv(changes_path, flattened_change_rows(result), CHANGE_COLUMNS)
+
     manifest = {
-        "schema_version": "0.1",
+        "schema_version": SCHEMA_VERSION,
+        "tool": "Revit Estimating Tools",
+        "tool_version": __version__,
+        "created_at": created_at,
         "status": "NOT_ESTIMATOR_VALIDATED",
-        "baseline_snapshot": baseline_path,
-        "current_snapshot": current_path,
+        "baseline_snapshot": _input_evidence(baseline_path),
+        "current_snapshot": _input_evidence(current_path),
         "summary": result.get("summary") or {},
         "evidence_hashes": {
             "revision_diff.json": sha256_file(result_path),
