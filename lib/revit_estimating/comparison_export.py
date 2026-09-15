@@ -29,10 +29,24 @@ def _input_evidence(path):
     return {"path": absolute, "sha256": sha256_file(absolute), "status": "HASHED"}
 
 
-def write_revision_comparison(output_root, result, baseline_path=None, current_path=None):
-    created_at = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-    stamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    folder = ensure_dir(os.path.join(output_root, "RevisionComparison_%s" % stamp))
+def _comparison_folder(output_root, stamp):
+    base = os.path.join(output_root, "RevisionComparison_%s" % stamp)
+    candidate = base
+    index = 1
+    while os.path.exists(candidate):
+        candidate = "%s_v%03d" % (base, index)
+        index += 1
+    return ensure_dir(candidate)
+
+
+def _stamp_from_created_at(created_at):
+    return created_at.replace("-", "").replace(":", "").replace("T", "_").replace("Z", "")
+
+
+def write_revision_comparison(output_root, result, baseline_path=None, current_path=None, created_at=None):
+    created_at = created_at or (datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z")
+    stamp = _stamp_from_created_at(created_at)
+    folder = _comparison_folder(output_root, stamp)
     result_path = os.path.join(folder, "revision_diff.json")
     deltas_path = os.path.join(folder, "quantity_deltas.csv")
     changes_path = os.path.join(folder, "element_changes.csv")
