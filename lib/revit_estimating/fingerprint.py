@@ -24,13 +24,17 @@ def _rounded_location(location, increment):
 
 
 def size_label(element):
+    """Return a canonical physical-size label, avoiding display-unit formatting noise."""
     size = element.get("size") or {}
     parts = []
-    for key in ("diameter_mm", "width_mm", "height_mm", "size_text"):
+    for key in ("diameter_mm", "width_mm", "height_mm"):
         value = size.get(key)
-        if value not in (None, ""):
-            parts.append("%s=%s" % (key, to_text(value)))
-    return ";".join(parts)
+        if is_number(value):
+            parts.append("%s=%s" % (key, to_text(round(float(value), 3))))
+    if parts:
+        return ";".join(parts)
+    size_text = to_text(size.get("size_text")).strip()
+    return "size_text=%s" % size_text if size_text else ""
 
 
 def strict_fingerprint(element):
