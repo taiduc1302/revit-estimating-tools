@@ -53,7 +53,16 @@ def _family_name(element, type_element):
 
 
 def _level_name(element, doc):
-    param = get_parameter(element, ["LEVEL_PARAM", "FAMILY_LEVEL_PARAM", "INSTANCE_REFERENCE_LEVEL_PARAM", "SCHEDULE_LEVEL_PARAM"], ["Level", "Reference Level"])
+    built_ins = [
+        "RBS_START_LEVEL_PARAM",
+        "LEVEL_PARAM",
+        "FAMILY_LEVEL_PARAM",
+        "INSTANCE_REFERENCE_LEVEL_PARAM",
+        "INSTANCE_SCHEDULE_ONLY_LEVEL_PARAM",
+        "SCHEDULE_LEVEL_PARAM",
+        "SCHEDULE_BASE_LEVEL_PARAM",
+    ]
+    param = get_parameter(element, built_ins, ["Level", "Reference Level", "Base Level"])
     value = parameter_text(param, doc)
     if value:
         return value
@@ -119,7 +128,7 @@ def _size(element, type_element, doc):
     diameter = first_double(items, ["RBS_PIPE_DIAMETER_PARAM", "RBS_CONDUIT_DIAMETER_PARAM", "RBS_CURVE_DIAMETER_PARAM"], ["Diameter"])
     width = first_double(items, ["RBS_CURVE_WIDTH_PARAM", "RBS_CABLETRAY_WIDTH_PARAM"], ["Width"])
     height = first_double(items, ["RBS_CURVE_HEIGHT_PARAM", "RBS_CABLETRAY_HEIGHT_PARAM"], ["Height"])
-    size_text = first_text(items, doc, ["RBS_CALCULATED_SIZE"], ["Size"])
+    size_text = first_text(items, doc, ["RBS_CALCULATED_SIZE", "RBS_DUCT_SIZE_FORMATTED_PARAM"], ["Size"])
     return {
         "diameter_mm": length_ft_to_mm(diameter),
         "width_mm": length_ft_to_mm(width),
@@ -129,7 +138,11 @@ def _size(element, type_element, doc):
 
 
 def _quantities(element, spec):
-    raw_length = first_double([element], ["CURVE_ELEM_LENGTH", "INSTANCE_LENGTH_PARAM"], ["Length"])
+    raw_length = first_double(
+        [element],
+        ["CURVE_ELEM_LENGTH", "INSTANCE_LENGTH_PARAM", "RBS_CABLETRAYCONDUITRUN_LENGTH_PARAM"],
+        ["Length"],
+    )
     if raw_length is None:
         try:
             location = element.Location
@@ -138,7 +151,7 @@ def _quantities(element, spec):
         except Exception:
             pass
     raw_area = first_double([element], ["HOST_AREA_COMPUTED"], ["Area"])
-    raw_volume = first_double([element], ["HOST_VOLUME_COMPUTED"], ["Volume"])
+    raw_volume = first_double([element], ["HOST_VOLUME_COMPUTED", "RBS_PIPE_VOLUME_PARAM"], ["Volume"])
     quantities = {
         "raw_internal_length_ft": raw_length,
         "raw_internal_area_sqft": raw_area,
@@ -181,7 +194,19 @@ def extract_element(element, context, spec):
     doc = context["doc"]
     type_element = _type_element(element, doc)
     items = [element, type_element]
-    system = first_text(items, doc, ["RBS_SYSTEM_NAME_PARAM", "RBS_PIPING_SYSTEM_TYPE_PARAM", "RBS_DUCT_SYSTEM_TYPE_PARAM"], ["System Name", "System Type", "System Classification"])
+    system = first_text(
+        items,
+        doc,
+        [
+            "RBS_SYSTEM_NAME_PARAM",
+            "RBS_PIPING_SYSTEM_TYPE_PARAM",
+            "RBS_DUCT_SYSTEM_TYPE_PARAM",
+            "RBS_CABLETRAYCONDUIT_SYSTEM_TYPE",
+            "RBS_SYSTEM_CLASSIFICATION_PARAM",
+            "RBS_CTC_SERVICE_TYPE",
+        ],
+        ["System Name", "System Type", "System Classification", "Service Type"],
+    )
     material = first_text(items, doc, ["STRUCTURAL_MATERIAL_PARAM", "MATERIAL_ID_PARAM"], ["Material"])
     mark = first_text([element], doc, ["ALL_MODEL_MARK"], ["Mark"])
     quantities, primary_type, primary_value, primary_unit = _quantities(element, spec)
