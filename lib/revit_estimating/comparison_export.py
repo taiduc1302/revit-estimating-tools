@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Write revision-comparison evidence packages."""
 from __future__ import absolute_import, print_function
 
 import datetime
 import os
 
 from .hashing import sha256_file
-from .serialization import ensure_dir, sanitize_filename, write_json, write_csv
+from .serialization import ensure_dir, write_json, write_csv
 from .diff import flattened_change_rows
 
 DELTA_COLUMNS = [
-    "source_document", "category", "family", "type", "system", "material", "size", "unit",
+    "source_scope_key", "source_document", "baseline_source_document", "current_source_document",
+    "category", "family", "type", "system", "material", "size", "unit",
     "baseline_quantity", "current_quantity", "delta"
 ]
 CHANGE_COLUMNS = [
@@ -30,15 +30,16 @@ def write_revision_comparison(output_root, result, baseline_path=None, current_p
     write_json(result_path, result)
     write_csv(deltas_path, result.get("quantity_deltas") or [], DELTA_COLUMNS)
     write_csv(changes_path, flattened_change_rows(result), CHANGE_COLUMNS)
-
     manifest = {
-        "schema_version": "0.1", "status": "NOT_ESTIMATOR_VALIDATED",
-        "baseline_snapshot": baseline_path, "current_snapshot": current_path,
+        "schema_version": "0.1",
+        "status": "NOT_ESTIMATOR_VALIDATED",
+        "baseline_snapshot": baseline_path,
+        "current_snapshot": current_path,
         "summary": result.get("summary") or {},
         "evidence_hashes": {
             "revision_diff.json": sha256_file(result_path),
             "quantity_deltas.csv": sha256_file(deltas_path),
-            "element_changes.csv": sha256_file(changes_path),
+            "element_changes.csv": sha256_file(changes_path)
         }
     }
     write_json(manifest_path, manifest)
