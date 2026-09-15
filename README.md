@@ -47,12 +47,13 @@ The dependency-free core can be used without Autodesk Revit:
 ```bash
 python tools/revit_estimating.py validate <snapshot-folder>
 python tools/revit_estimating.py compare baseline/raw_snapshot.json current/raw_snapshot.json --output comparisons
+python tools/revit_estimating.py validate-comparison <RevisionComparison_folder>
 python tools/revit_estimating.py package <snapshot-folder>
 ```
 
-Add `--json` to any command for machine-readable output. The comparison command rejects unsupported snapshot schema versions and duplicate element identities instead of silently producing a partial result.
+Add `--json` to any command for machine-readable output. `validate-comparison` checks generated comparison evidence and the exact baseline/current input hashes; add `--skip-input-files` when the original input files have intentionally been moved and only the generated comparison package should be verified.
 
-The older `tools/validate_snapshot.py` entry point remains available as a focused snapshot-validator command.
+Comparison rejects unsupported snapshot schema versions and duplicate element identities instead of silently producing a partial result. The older `tools/validate_snapshot.py` entry point remains available as a focused snapshot-validator command.
 
 ## Revision identity
 
@@ -62,6 +63,8 @@ Revision comparison uses stable logical scope plus Revit `UniqueId`:
 - linked elements: `LINK:<link-instance-UniqueId>:<UniqueId>`.
 
 The RVT filename/path is retained as evidence but is not part of the primary comparison identity, so normal `Save As` or filename changes do not redefine every host element. Inferred recreated-element matches are constrained to the same host/link scope and remain labelled `POSSIBLE_RECREATED`.
+
+Physical numeric dimensions are authoritative for size comparison and aggregation. Revit-formatted `size_text` is used only as a fallback when numeric dimensions are unavailable, preventing display-unit changes such as `300 mm` to `0.30 m` from creating false revisions.
 
 ## Safety model
 
