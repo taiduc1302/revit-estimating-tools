@@ -12,6 +12,7 @@ if LIB not in sys.path:
 
 from revit_estimating.comparison_export import write_revision_comparison
 from revit_estimating.diff import compare_snapshots
+from revit_estimating.doctor import run_doctor
 from revit_estimating.package import create_estimating_package
 from revit_estimating.snapshot import load_raw_snapshot
 from revit_estimating.validation import validate_snapshot_folder, validate_comparison_folder, validation_passed
@@ -32,6 +33,10 @@ def _report_validation(findings, label, json_output):
         for item in findings:
             print("- %s: %s" % (item.get("code"), item.get("message")))
     return 0 if passed else 1
+
+
+def doctor_command(args):
+    return _report_validation(run_doctor(args.repository), "repository/extension configuration", args.json_output)
 
 
 def validate_command(args):
@@ -88,6 +93,11 @@ def package_command(args):
 def build_parser():
     parser = argparse.ArgumentParser(description="Offline tools for Revit estimating snapshots.")
     commands = parser.add_subparsers(dest="command")
+
+    doctor = commands.add_parser("doctor", help="Check repository/extension structure without Revit.")
+    doctor.add_argument("repository", nargs="?", default=ROOT)
+    doctor.add_argument("--json", action="store_true", dest="json_output")
+    doctor.set_defaults(handler=doctor_command)
 
     validate = commands.add_parser("validate", help="Validate an exported snapshot package.")
     validate.add_argument("folder")
