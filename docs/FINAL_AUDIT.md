@@ -4,7 +4,7 @@ Audit date: 2026-09-16
 
 ## Status
 
-- `OFFLINE_VALIDATED`: pending final post-audit CI run
+- `OFFLINE_VALIDATED`: true — post-audit CI passed on Python 3.8, 3.11, and 3.12
 - `LIVE_REVIT_VALIDATED`: false
 - `PRODUCTION_READY`: false until live Revit/pyRevit validation in Issue #2 is completed
 - Model modification: not implemented
@@ -81,11 +81,17 @@ The automated suite covers or statically checks:
 - expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, and read-only transaction contract;
 - absence of the removed company-specific project name in governed source/docs/config/tool paths.
 
+The post-audit GitHub Actions matrix passed the offline doctor, dependency-free unit tests, golden CLI revision comparison, and bytecode compilation on Python 3.8, 3.11, and 3.12.
+
 ## Known limitations that remain after offline audit
 
 ### Live Autodesk behavior is unverified
 
 No offline test can prove actual Revit category enumeration, parameter availability on representative project families, linked-coordinate transforms, pyRevit ribbon loading, or that Revit's dirty state remains unchanged. These are the live gate in Issue #2.
+
+### Quantity semantics still require estimator validation against schedules/drawings
+
+A technically available Revit parameter is not automatically the correct estimating quantity. Examples include wall/floor computed area conventions, openings, structural-framing nominal versus cut length, foundation volume behavior, and project-specific modeling practices. During live validation, extracted quantities must be reconciled against known Revit schedules and/or drawing quantities before any category is treated as production-approved.
 
 ### Source paths are evidence and may contain internal filesystem information
 
@@ -113,4 +119,4 @@ The snapshot records `source_model_hash_status: NOT_COMPUTED_FOR_OPEN_MODEL`; V0
 
 ## Release gate
 
-V0.1 may be considered **offline-ready** only after the final post-audit CI matrix is green. It must remain `NOT_ESTIMATOR_VALIDATED` / not production-ready until Issue #2 is completed on representative Autodesk Revit models.
+V0.1 is **offline-ready**. It must remain `NOT_ESTIMATOR_VALIDATED` / not production-ready until Issue #2 is completed on representative Autodesk Revit models and category-level quantity semantics are reconciled against known schedules/drawings.
