@@ -207,7 +207,12 @@ def extract_element(element, context, spec):
         ],
         ["System Name", "System Type", "System Classification", "Service Type"],
     )
-    material = first_text(items, doc, ["STRUCTURAL_MATERIAL_PARAM", "MATERIAL_ID_PARAM"], ["Material"])
+    material = first_text(
+        items,
+        doc,
+        ["RBS_PIPE_MATERIAL_PARAM", "STRUCTURAL_MATERIAL_PARAM", "MATERIAL_ID_PARAM"],
+        ["Material"],
+    )
     mark = first_text([element], doc, ["ALL_MODEL_MARK"], ["Mark"])
     quantities, primary_type, primary_value, primary_unit = _quantities(element, spec)
     unique_id = to_text(getattr(element, "UniqueId", ""))
@@ -243,6 +248,7 @@ def extract_element(element, context, spec):
         "primary_quantity_type": primary_type,
         "primary_quantity_value": primary_value,
         "primary_quantity_unit": primary_unit,
+        "quantity_aggregation_excluded": bool(spec.get("audit_only")),
         "parameters": _selected_parameters(element, type_element, doc),
     }
     dto["fingerprints"] = {
@@ -292,7 +298,24 @@ def extract_model(host_doc, app=None):
     skipped_categories = []
     for context in contexts:
         for spec in load_category_specs():
-            category_elements = collect_category_elements(context, spec)
+            try:
+                category_elements = collect_category_elements(context, spec)
+            except Exception as exc:
+                skipped = {
+                    "source_document": context.get("source_document"),
+                    "source_scope_key": _source_scope_key(context),
+                    "category": spec.get("name"),
+                    "bic": spec.get("bic"),
+                    "reason": to_text(exc),
+                }
+                skipped_categories.append(skipped)
+                link_issues.append({
+                    "rule_id": "CATEGORY_COLLECTION_FAILED", "severity": "HIGH",
+                    "source_document": context.get("source_document"),
+                    "message": "Estimating category collection failed for %s: %s" % (spec.get("name"), to_text(exc)),
+                    "values": skipped,
+                })
+                continue
             if not category_elements:
                 continue
             for element in category_elements:
@@ -307,4 +330,5 @@ def extract_model(host_doc, app=None):
                     })
     elements.sort(key=lambda x: x.get("element_key", ""))
     metadata = model_metadata(host_doc, contexts, app=app)
+    metadata["skipped_categories"] = list(skipped_categories)
     return {"elements": elements, "link_issues": link_issues, "model_metadata": metadata, "skipped_categories": skipped_categories}
