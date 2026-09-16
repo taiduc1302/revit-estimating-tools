@@ -28,10 +28,15 @@ output_root = forms.pick_folder(title="Choose revision comparison output folder"
 if not output_root:
     script.exit()
 
-baseline = load_raw_snapshot(baseline_path)
-current = load_raw_snapshot(current_path)
-result = compare_snapshots(baseline, current)
-folder = write_revision_comparison(output_root, result, baseline_path=baseline_path, current_path=current_path)
+try:
+    baseline = load_raw_snapshot(baseline_path)
+    current = load_raw_snapshot(current_path)
+    result = compare_snapshots(baseline, current)
+    folder = write_revision_comparison(output_root, result, baseline_path=baseline_path, current_path=current_path)
+except Exception as exc:
+    forms.alert(str(exc), title="Compare Revision", warn_icon=True)
+    script.exit()
+
 summary = result["summary"]
 
 output.print_md("# Revision Comparison")
