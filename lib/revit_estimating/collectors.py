@@ -43,7 +43,16 @@ def collect_document_contexts(host_doc):
         "transform": None,
     }]
     link_issues = []
-    instances = DB.FilteredElementCollector(host_doc).OfClass(DB.RevitLinkInstance).ToElements()
+    try:
+        instances = DB.FilteredElementCollector(host_doc).OfClass(DB.RevitLinkInstance).ToElements()
+    except Exception as exc:
+        link_issues.append({
+            "rule_id": "LINK_COLLECTION_FAILED", "severity": "HIGH", "source_document": to_text(host_doc.Title),
+            "message": "Revit link collection failed: %s" % to_text(exc),
+            "values": {}
+        })
+        return contexts, link_issues
+
     for instance in instances:
         link_doc = None
         try:
@@ -64,6 +73,12 @@ def collect_document_contexts(host_doc):
                 transform = instance.GetTransform()
             except Exception:
                 transform = None
+        if transform is None:
+            link_issues.append({
+                "rule_id": "LINK_TRANSFORM_UNAVAILABLE", "severity": "MEDIUM", "source_document": to_text(link_doc.Title),
+                "message": "Linked-model transform could not be resolved: %s" % _link_name(instance),
+                "values": {"link_instance_id": element_id_value(instance.Id), "link_instance_name": _link_name(instance)}
+            })
         contexts.append({
             "doc": link_doc,
             "document_id": sha256_text(document_identity(link_doc))[:16],
@@ -79,9 +94,10 @@ def collect_document_contexts(host_doc):
 
 
 def collect_category_elements(context, spec):
-    bic = getattr(DB.BuiltInCategory, spec.get("bic", ""), None)
+    bic_name = spec.get("bic", "")
+    bic = getattr(DB.BuiltInCategory, bic_name, None)
     if bic is None:
-        return []
+        raise ValueError("Unsupported BuiltInCategory in extraction config: %s" % to_text(bic_name))
     try:
         return list(
             DB.FilteredElementCollector(context["doc"])
@@ -89,5 +105,8 @@ def collect_category_elements(context, spec):
             .WhereElementIsNotElementType()
             .ToElements()
         )
-    except Exception:
-        return []
+    except Exception as exc:
+        raise RuntimeError(
+            "Category collection failed for %s (%s): %s"
+            % (to_text(spec.get("name")), to_text(bic_name), to_text(exc))
+        )
