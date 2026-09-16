@@ -1,0 +1,7 @@
+title: Model Audit
+tooltip: Review the active model and loaded Revit links for estimating-related data quality issues. Read-only.
+author: Revit Estimating Tools
+min_revit_version: 2021
+context: doc-project
+engine:
+  clean: true

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Revit Estimating Snapshot",
+  "type": "object",
+  "required": ["schema_version", "metadata", "elements", "audit_issues"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "metadata": {"type": "object"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "element_key",
+          "source_scope_key",
+          "source_document",
+          "unique_id",
+          "category",
+          "primary_quantity_type",
+          "primary_quantity_unit"
+        ],
+        "properties": {
+          "element_key": {"type": "string", "minLength": 1},
+          "source_scope_key": {"type": "string", "minLength": 1},
+          "source_document": {"type": "string"},
+          "source_document_identity": {"type": ["string", "null"]},
+          "unique_id": {"type": "string"},
+          "category": {"type": "string"},
+          "size": {"type": "object"},
+          "location": {"type": ["object", "null"]},
+          "quantities": {"type": "object"},
+          "parameters": {"type": "object"},
+          "quantity_aggregation_excluded": {"type": "boolean"},
+          "primary_quantity_type": {"type": "string"},
+          "primary_quantity_value": {"type": ["number", "null"]},
+          "primary_quantity_unit": {"type": "string"}
+        }
+      }
+    },
+    "audit_issues": {"type": "array", "items": {"type": "object"}}
+  }
+}
