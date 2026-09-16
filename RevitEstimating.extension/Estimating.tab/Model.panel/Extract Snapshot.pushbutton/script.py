@@ -26,27 +26,33 @@ if not output_root:
     script.exit()
 
 started_at = utc_now_iso()
-result = extract_model(revit.doc, getattr(revit.doc, "Application", None))
-issues = audit_model(result["elements"], result["link_issues"])
-metadata = result["model_metadata"]
-project_name = metadata.get("project_name") or metadata.get("host_document") or "Model"
+try:
+    result = extract_model(revit.doc, getattr(revit.doc, "Application", None))
+    issues = audit_model(result["elements"], result["link_issues"])
+    metadata = result["model_metadata"]
+    project_name = metadata.get("project_name") or metadata.get("host_document") or "Model"
 
-manifest = build_manifest(
-    project_name=project_name,
-    model_metadata=metadata,
-    element_count=len(result["elements"]),
-    audit_count=len(issues),
-    extraction_config={"categories": "config/categories.json", "read_only": True},
-    created_at=started_at,
-)
-folder = write_snapshot_package(output_root, manifest, result["elements"], issues)
-write_run_log(folder, build_run_record(
-    "Extract Snapshot", metadata.get("host_document"), started_at,
-    element_count=len(result["elements"]), warning_count=len(issues), export_path=folder, tool_version=__version__
-))
+    manifest = build_manifest(
+        project_name=project_name,
+        model_metadata=metadata,
+        element_count=len(result["elements"]),
+        audit_count=len(issues),
+        extraction_config={"categories": "config/categories.json", "read_only": True},
+        created_at=started_at,
+    )
+    folder = write_snapshot_package(output_root, manifest, result["elements"], issues)
+    write_run_log(folder, build_run_record(
+        "Extract Snapshot", metadata.get("host_document"), started_at,
+        element_count=len(result["elements"]), warning_count=len(issues), export_path=folder, tool_version=__version__
+    ))
+except Exception as exc:
+    forms.alert(str(exc), title="Extract Snapshot", warn_icon=True)
+    script.exit()
 
 output.print_md("# Estimating Snapshot Created")
 output.print_md("**Folder:** `%s`  " % folder)
 output.print_md("**Elements:** %s  " % len(result["elements"]))
 output.print_md("**Audit issues:** %s  " % len(issues))
+if result.get("skipped_categories"):
+    output.print_md("**Skipped categories due to extraction errors:** %s  " % len(result.get("skipped_categories") or []))
 output.print_md("**Status:** `NOT_ESTIMATOR_VALIDATED`")
