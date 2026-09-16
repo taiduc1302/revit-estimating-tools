@@ -71,6 +71,26 @@ def _index_elements(elements, label):
     return indexed
 
 
+def _project_number(snapshot):
+    metadata = snapshot.get("metadata") or {}
+    model = metadata.get("model") or {}
+    return to_text(model.get("project_number")).strip()
+
+
+def _comparison_warnings(baseline_snapshot, current_snapshot):
+    warnings = []
+    baseline_number = _project_number(baseline_snapshot)
+    current_number = _project_number(current_snapshot)
+    if baseline_number and current_number and baseline_number != current_number:
+        warnings.append({
+            "code": "PROJECT_NUMBER_MISMATCH",
+            "severity": "HIGH",
+            "message": "Baseline and current snapshots have different Revit project numbers. Confirm that these snapshots belong to the intended revision set.",
+            "values": {"baseline_project_number": baseline_number, "current_project_number": current_number},
+        })
+    return warnings
+
+
 def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10):
     pairs = []
     used_added = set()
@@ -157,6 +177,7 @@ def compare_snapshots(baseline_snapshot, current_snapshot):
     return {
         "schema_version": SCHEMA_VERSION,
         "summary": summary,
+        "warnings": _comparison_warnings(baseline_snapshot, current_snapshot),
         "added": final_added,
         "removed": final_removed,
         "modified": modified,
