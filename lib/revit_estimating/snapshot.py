@@ -15,7 +15,7 @@ ELEMENT_COLUMNS = [
     "link_instance_name", "link_instance_unique_id", "element_id", "unique_id", "category", "family", "type",
     "system", "material", "level", "workset", "phase_created", "phase_demolished", "design_option", "mark",
     "size", "location", "primary_quantity_type", "primary_quantity_value", "primary_quantity_unit",
-    "quantities", "fingerprints"
+    "quantity_aggregation_excluded", "quantities", "parameters", "fingerprints"
 ]
 AUDIT_COLUMNS = ["issue_id", "severity", "rule_id", "source_document", "element_key", "element_id", "category", "message", "values"]
 QUANTITY_COLUMNS = ["source_document", "category", "family", "type", "system", "material", "size", "unit", "quantity", "element_count"]
