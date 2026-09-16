@@ -64,10 +64,13 @@ def compare_command(args):
             print("FAIL: %s" % exc)
         return 1
     summary = result.get("summary") or {}
+    warnings = result.get("warnings") or []
     if args.json_output:
-        print_json({"passed": True, "output_folder": folder, "summary": summary})
+        print_json({"passed": True, "output_folder": folder, "summary": summary, "warnings": warnings})
     else:
         print("PASS: revision comparison created at %s" % folder)
+        for warning in warnings:
+            print("WARNING %s: %s" % (warning.get("code"), warning.get("message")))
         print("Added=%s Removed=%s Modified=%s PossibleRecreated=%s Unchanged=%s" % (
             summary.get("ADDED", 0), summary.get("REMOVED", 0), summary.get("MODIFIED", 0),
             summary.get("POSSIBLE_RECREATED", 0), summary.get("UNCHANGED", 0)))
