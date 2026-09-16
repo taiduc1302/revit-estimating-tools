@@ -6,6 +6,10 @@ from .fingerprint import size_label
 from .utils import to_text, is_number, rounded
 
 
+def _excluded_from_quantity_aggregation(element):
+    return bool(element.get("quantity_aggregation_excluded"))
+
+
 def aggregation_key(element):
     return (
         to_text(element.get("source_document")),
@@ -22,6 +26,8 @@ def aggregation_key(element):
 def aggregate_primary_quantities(elements):
     groups = {}
     for element in elements:
+        if _excluded_from_quantity_aggregation(element):
+            continue
         value = element.get("primary_quantity_value")
         unit = element.get("primary_quantity_unit")
         if not unit or not is_number(value):
@@ -60,6 +66,8 @@ def _revision_aggregation_key(element):
 def _revision_aggregate(elements):
     groups = {}
     for element in elements:
+        if _excluded_from_quantity_aggregation(element):
+            continue
         value = element.get("primary_quantity_value")
         unit = element.get("primary_quantity_unit")
         if not unit or not is_number(value):
