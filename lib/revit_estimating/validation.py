@@ -11,6 +11,7 @@ from .utils import to_text
 
 REQUIRED_FILES = ("manifest.json", "raw_snapshot.json", "elements.csv", "quantities.csv", "audit_issues.csv", "summary.csv")
 EVIDENCE_FILES = REQUIRED_FILES[1:]
+OPTIONAL_EVIDENCE_FILES = ("run_log.json",)
 COMPARISON_REQUIRED_FILES = ("comparison_manifest.json", "revision_diff.json", "quantity_deltas.csv", "element_changes.csv")
 COMPARISON_EVIDENCE_FILES = COMPARISON_REQUIRED_FILES[1:]
 
@@ -53,6 +54,24 @@ def _validate_declared_hashes(folder, names, expected, findings):
         actual = sha256_file(path)
         if declared != actual:
             findings.append(finding("HASH_MISMATCH", "Evidence hash does not match manifest.", {"file": name, "declared": declared, "actual": actual}))
+    return expected
+
+
+def _validate_optional_hashes(folder, names, expected, findings):
+    if not isinstance(expected, dict):
+        expected = {}
+    for name in names:
+        path = os.path.join(folder, name)
+        exists = os.path.isfile(path)
+        declared = expected.get(name)
+        if exists and not declared:
+            findings.append(finding("HASH_DECLARATION_MISSING", "Optional evidence file exists but is not hashed in the manifest.", {"file": name}))
+        elif not exists and declared:
+            findings.append(finding("FILE_MISSING", "Manifest declares an optional evidence file that is missing.", {"file": name}))
+        elif exists and declared:
+            actual = sha256_file(path)
+            if declared != actual:
+                findings.append(finding("HASH_MISMATCH", "Evidence hash does not match manifest.", {"file": name, "declared": declared, "actual": actual}))
 
 
 def validate_snapshot_folder(folder):
@@ -76,7 +95,8 @@ def validate_snapshot_folder(folder):
     if manifest_version and snapshot_version and manifest_version != snapshot_version:
         findings.append(finding("SCHEMA_VERSION_MISMATCH", "Manifest and raw snapshot schema versions do not match.", {"manifest": manifest_version, "snapshot": snapshot_version}))
 
-    _validate_declared_hashes(folder, EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
+    expected_hashes = _validate_declared_hashes(folder, EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
+    _validate_optional_hashes(folder, OPTIONAL_EVIDENCE_FILES, expected_hashes, findings)
 
     elements = snapshot.get("elements")
     if not isinstance(elements, list):
