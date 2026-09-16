@@ -4,7 +4,7 @@ from __future__ import print_function
 import os
 import sys
 
-from pyrevit import revit, script
+from pyrevit import forms, revit, script
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 LIB = os.path.join(ROOT, "lib")
@@ -17,9 +17,13 @@ from revit_estimating.revit_adapter import extract_model
 output = script.get_output()
 output.close_others()
 
-result = extract_model(revit.doc, getattr(revit.doc, "Application", None))
-issues = audit_model(result["elements"], result["link_issues"])
-summary = audit_summary(issues)
+try:
+    result = extract_model(revit.doc, getattr(revit.doc, "Application", None))
+    issues = audit_model(result["elements"], result["link_issues"])
+    summary = audit_summary(issues)
+except Exception as exc:
+    forms.alert(str(exc), title="Model Audit", warn_icon=True)
+    script.exit()
 
 output.print_md("# Estimating Model Audit")
 output.print_md("**Model:** %s  " % result["model_metadata"].get("host_document"))
@@ -27,6 +31,8 @@ output.print_md("**Elements reviewed:** %s  " % len(result["elements"]))
 output.print_md("**Issues:** %s high · %s medium · %s low · %s info" % (
     summary.get("HIGH", 0), summary.get("MEDIUM", 0), summary.get("LOW", 0), summary.get("INFO", 0)
 ))
+if result.get("skipped_categories"):
+    output.print_md("**Skipped categories due to extraction errors:** %s  " % len(result.get("skipped_categories") or []))
 
 if not issues:
     output.print_md("\nNo estimating audit issues were found by the current rules.")
