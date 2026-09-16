@@ -21,11 +21,13 @@ This design prevents a simple `Save As` or filename change from turning an other
 ## Estimating fields
 
 - `category`, `family`, `type`, `system`, `material`, `level`, `workset`, `phase_created`, `phase_demolished`, `design_option`, `mark`
-- `size` — normalized dimensions where available
+- `size` — normalized physical dimensions where available; formatted `size_text` is only a fallback when numeric dimensions are unavailable
 - `location` — representative host-coordinate point in metres where available
 - `quantities` — raw Revit internal values plus normalized SI quantities
 - `primary_quantity_type`, `primary_quantity_value`, `primary_quantity_unit`
-- `fingerprints` — strict/loose comparison fingerprints
+- `quantity_aggregation_excluded` — true for audit-only categories; these elements remain in evidence/audit data but do not contribute to quantity aggregation or revision quantity deltas
+- `parameters` — selected estimating metadata: description, instance/type comments, Assembly Code, keynote, and model
+- `fingerprints` — strict/loose comparison fingerprints used only for conservative inferred recreated-element matching
 
 ## Units
 
@@ -42,7 +44,11 @@ This design prevents a simple `Save As` or filename change from turning an other
 - `UNCHANGED`
 - `POSSIBLE_RECREATED`
 
+`MODIFIED` includes selected classification, phase, workset, representative location, physical size, normalized quantity, aggregation status, and estimating-parameter changes.
+
 `POSSIBLE_RECREATED` is inferred, never authoritative, and inferred matches are constrained to the same logical model/link scope.
+
+Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity when both snapshots have non-empty Revit Project Number values and those values differ.
 
 ## Snapshot integrity
 
@@ -51,12 +57,17 @@ This design prevents a simple `Save As` or filename change from turning an other
 - all required package files exist;
 - manifest and raw snapshot schema versions agree and are supported;
 - every declared evidence hash matches the file on disk;
+- optional `run_log.json`, when present, is declared and hashed;
 - `elements` and `audit_issues` have the expected container types;
 - `element_key` values are present and unique;
 - `source_scope_key` is present for stable revision comparison;
 - manifest/snapshot element and audit counts agree with exported records.
 
 Use `python tools/revit_estimating.py validate <snapshot-folder>` or the focused `tools/validate_snapshot.py` command.
+
+## Evidence/privacy note
+
+`source_document_identity` may contain a full Revit model path, and `run_log.json` may contain the export path. These fields improve traceability but can expose internal filesystem/project information if a package is shared externally. V0.1 does not automatically redact paths.
 
 ## Validation status
 
