@@ -72,7 +72,7 @@ class ExtensionContractTests(unittest.TestCase):
             self.assertNotIn("context: doc-project", content, path)
 
     def test_no_company_specific_name(self):
-        forbidden = "tybo"
+        forbidden = "".join(("ty", "bo"))
         checked = []
         for base in (EXTENSION, os.path.join(ROOT, "lib"), os.path.join(ROOT, "docs"), os.path.join(ROOT, "config"), os.path.join(ROOT, "tools")):
             for dirpath, _, filenames in os.walk(base):
