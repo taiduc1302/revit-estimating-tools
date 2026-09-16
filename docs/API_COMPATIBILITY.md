@@ -59,6 +59,7 @@ The following parameters used by the adapter are present in the Revit 2026 Built
 - `RBS_CTC_SERVICE_TYPE`
 - `RBS_CABLETRAYCONDUITRUN_LENGTH_PARAM`
 - `RBS_PIPE_VOLUME_PARAM`
+- `RBS_PIPE_MATERIAL_PARAM`
 
 ### Material and common estimating metadata
 
@@ -69,15 +70,20 @@ The following parameters used by the adapter are present in the Revit 2026 Built
 - `ALL_MODEL_INSTANCE_COMMENTS`
 - `ALL_MODEL_TYPE_COMMENTS`
 - `ALL_MODEL_MODEL`
+- `UNIFORMAT_CODE`
+- `KEYNOTE_PARAM`
 
-## Important limitation
+## Important limitations
 
 Presence in the API enumeration does not guarantee that a parameter exists or has a value on every element/category. The adapter therefore treats these as ordered fallbacks and then tries selected display-name lookups. Missing values remain missing and are handled by model-audit rules; they must not be invented.
+
+Display-name fallbacks are currently English (`Material`, `Level`, `Reference Level`, `System Type`, and similar). Built-in parameters are preferred, but non-English Revit/model environments remain a live-validation requirement.
+
+The adapter exposes one primary `material` value for grouping. It does not yet expand compound wall/floor layers or all multi-material family cases.
 
 ## References used for the compatibility review
 
 - Autodesk Revit API / RevitAPIDocs 2026 BuiltInParameter enumeration
-- pyRevit `docs/extensions.md` and `docs/architecture.md`
-- pyRevit IronPython and CPython forms implementations
+- pyRevit extension metadata and forms implementations
 
 Re-check these assumptions when upgrading pyRevit or changing the supported Revit range.
