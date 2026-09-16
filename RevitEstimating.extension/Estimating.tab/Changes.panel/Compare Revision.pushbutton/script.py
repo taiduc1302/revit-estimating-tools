@@ -40,6 +40,8 @@ except Exception as exc:
 summary = result["summary"]
 
 output.print_md("# Revision Comparison")
+for warning in result.get("warnings") or []:
+    output.print_md("**WARNING — %s:** %s  " % (warning.get("code"), warning.get("message")))
 output.print_md("**Added:** %s · **Removed:** %s · **Modified:** %s · **Possible recreated:** %s · **Unchanged:** %s" % (
     summary.get("ADDED", 0), summary.get("REMOVED", 0), summary.get("MODIFIED", 0),
     summary.get("POSSIBLE_RECREATED", 0), summary.get("UNCHANGED", 0)
