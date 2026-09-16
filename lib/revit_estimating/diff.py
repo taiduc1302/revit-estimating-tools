@@ -9,8 +9,13 @@ from .utils import nested_get, is_number, to_text, rounded
 
 COMPARISON_FIELDS = [
     "family", "type", "system", "material", "level", "workset", "phase_created",
-    "phase_demolished", "design_option", "mark", "quantities.length_m", "quantities.area_m2",
-    "quantities.volume_m3", "primary_quantity_type", "primary_quantity_value", "primary_quantity_unit"
+    "phase_demolished", "design_option", "mark",
+    "location.x_m", "location.y_m", "location.z_m",
+    "quantities.length_m", "quantities.area_m2", "quantities.volume_m3",
+    "primary_quantity_type", "primary_quantity_value", "primary_quantity_unit",
+    "quantity_aggregation_excluded",
+    "parameters.description", "parameters.comments", "parameters.type_comments",
+    "parameters.assembly_code", "parameters.keynote", "parameters.model",
 ]
 
 
