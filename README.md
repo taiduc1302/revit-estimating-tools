@@ -23,7 +23,7 @@ The project deliberately does **not** modify Revit model data, price work, creat
 
 `RevitEstimating.extension` is self-contained: its runtime package lives under `lib/revit_estimating` and its governed category configuration lives under `config/categories.json`. No repository-level `lib` or `config` folder is required after deployment. Model Audit and Extract Snapshot fail closed if the embedded category config is missing, malformed, schema-incompatible, or internally inconsistent.
 
-For development setup and validation details see `docs/DEVELOPMENT.md` and `docs/TESTING.md`.
+For deployment details see `docs/INSTALLATION.md`; for development and validation see `docs/DEVELOPMENT.md` and `docs/TESTING.md`.
 
 ## Snapshot output
 
