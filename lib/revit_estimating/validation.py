@@ -6,7 +6,9 @@ import os
 
 from . import SCHEMA_VERSION
 from .hashing import sha256_file
-from .serialization import read_json
+from .serialization import read_json, read_text
+from .evidence import snapshot_csv_texts, comparison_csv_texts
+from .diff import compare_snapshots
 from .utils import to_text
 
 REQUIRED_FILES = ("manifest.json", "raw_snapshot.json", "elements.csv", "quantities.csv", "audit_issues.csv", "summary.csv")
@@ -145,6 +147,51 @@ def _validate_optional_hashes(folder, names, expected, findings):
                 findings.append(finding("HASH_MISMATCH", "Evidence hash does not match manifest.", {"file": name, "declared": declared, "actual": actual}))
 
 
+def _validate_derived_evidence(folder, expected_texts, findings):
+    for name in sorted(expected_texts.keys()):
+        path = os.path.join(folder, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            actual = read_text(path)
+        except Exception as exc:
+            findings.append(finding("DERIVED_EVIDENCE_READ_FAILED", "Derived evidence file could not be read.", {"file": name, "error": to_text(exc)}))
+            continue
+        if actual != expected_texts[name]:
+            findings.append(finding(
+                "DERIVED_EVIDENCE_MISMATCH",
+                "Derived evidence does not match its authoritative JSON source.",
+                {"file": name},
+            ))
+
+
+def _validate_comparison_recomputation(manifest, result, findings):
+    baseline = manifest.get("baseline_snapshot") or {}
+    current = manifest.get("current_snapshot") or {}
+    baseline_path = to_text(baseline.get("path")).strip()
+    current_path = to_text(current.get("path")).strip()
+    if not baseline_path or not current_path:
+        return
+    if not os.path.isfile(baseline_path) or not os.path.isfile(current_path):
+        return
+    try:
+        baseline_snapshot = read_json(baseline_path)
+        current_snapshot = read_json(current_path)
+        recomputed = compare_snapshots(baseline_snapshot, current_snapshot)
+    except Exception as exc:
+        findings.append(finding(
+            "COMPARISON_RECOMPUTATION_FAILED",
+            "Revision comparison could not be recomputed from the recorded inputs.",
+            {"error": to_text(exc)},
+        ))
+        return
+    if recomputed != result:
+        findings.append(finding(
+            "COMPARISON_RECOMPUTATION_MISMATCH",
+            "revision_diff.json does not match a fresh comparison of the recorded input snapshots.",
+        ))
+
+
 def snapshot_input_package_status(path):
     absolute = os.path.abspath(path)
     if not os.path.isfile(absolute):
@@ -214,13 +261,18 @@ def validate_snapshot_folder(folder):
     _validate_optional_hashes(folder, OPTIONAL_EVIDENCE_FILES, expected_hashes, findings)
 
     elements = snapshot.get("elements")
-    if not isinstance(elements, list):
+    elements_valid = isinstance(elements, list)
+    if not elements_valid:
         findings.append(finding("ELEMENTS_INVALID", "Snapshot elements must be a list."))
         elements = []
     audit_issues = snapshot.get("audit_issues")
-    if not isinstance(audit_issues, list):
+    audit_issues_valid = isinstance(audit_issues, list)
+    if not audit_issues_valid:
         findings.append(finding("AUDIT_ISSUES_INVALID", "Snapshot audit_issues must be a list."))
         audit_issues = []
+
+    if elements_valid and audit_issues_valid:
+        _validate_derived_evidence(folder, snapshot_csv_texts(snapshot), findings)
 
     seen = set()
     for index, element in enumerate(elements):
@@ -317,6 +369,7 @@ def validate_comparison_folder(folder, verify_inputs=True):
 
     _validate_comparison_manifest_contract(manifest, findings)
     _validate_declared_hashes(folder, COMPARISON_EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
+    _validate_derived_evidence(folder, comparison_csv_texts(result), findings)
 
     manifest_summary = manifest.get("summary")
     result_summary = result.get("summary")
@@ -327,6 +380,8 @@ def validate_comparison_folder(folder, verify_inputs=True):
 
     _validate_input_snapshot_evidence(manifest.get("baseline_snapshot"), "Baseline", findings, verify_file=verify_inputs)
     _validate_input_snapshot_evidence(manifest.get("current_snapshot"), "Current", findings, verify_file=verify_inputs)
+    if verify_inputs:
+        _validate_comparison_recomputation(manifest, result, findings)
     return findings
 
 
