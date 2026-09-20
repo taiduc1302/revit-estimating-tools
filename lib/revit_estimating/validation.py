@@ -272,7 +272,16 @@ def validate_snapshot_folder(folder):
         audit_issues = []
 
     if elements_valid and audit_issues_valid:
-        _validate_derived_evidence(folder, snapshot_csv_texts(snapshot), findings)
+        try:
+            derived_snapshot = snapshot_csv_texts(snapshot)
+        except Exception as exc:
+            findings.append(finding(
+                "DERIVED_EVIDENCE_RECOMPUTATION_FAILED",
+                "Snapshot review evidence could not be recomputed from raw_snapshot.json.",
+                {"error": to_text(exc)},
+            ))
+        else:
+            _validate_derived_evidence(folder, derived_snapshot, findings)
 
     seen = set()
     for index, element in enumerate(elements):
@@ -369,7 +378,16 @@ def validate_comparison_folder(folder, verify_inputs=True):
 
     _validate_comparison_manifest_contract(manifest, findings)
     _validate_declared_hashes(folder, COMPARISON_EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
-    _validate_derived_evidence(folder, comparison_csv_texts(result), findings)
+    try:
+        derived_comparison = comparison_csv_texts(result)
+    except Exception as exc:
+        findings.append(finding(
+            "DERIVED_EVIDENCE_RECOMPUTATION_FAILED",
+            "Comparison review evidence could not be recomputed from revision_diff.json.",
+            {"error": to_text(exc)},
+        ))
+    else:
+        _validate_derived_evidence(folder, derived_comparison, findings)
 
     manifest_summary = manifest.get("summary")
     result_summary = result.get("summary")
