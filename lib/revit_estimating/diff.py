@@ -85,8 +85,68 @@ def _project_name(snapshot):
     return to_text(model.get("project_name")).strip()
 
 
-def _comparison_warnings(baseline_snapshot, current_snapshot):
+def _linked_models(snapshot):
+    metadata = snapshot.get("metadata") or {}
+    model = metadata.get("model") or {}
+    linked = model.get("linked_models") or []
+    return [item for item in linked if isinstance(item, dict)]
+
+
+def _link_descriptor(item):
+    identity = to_text(item.get("document_identity")).strip()
+    document = to_text(item.get("document")).strip()
+    name = to_text(item.get("link_instance_name")).strip()
+    return identity or document, name
+
+
+def _link_scope_warnings(baseline_snapshot, current_snapshot):
     warnings = []
+    baseline_links = _linked_models(baseline_snapshot)
+    current_links = _linked_models(current_snapshot)
+    baseline_scopes = set(to_text(item.get("source_scope_key")).strip() for item in baseline_links if to_text(item.get("source_scope_key")).strip())
+    current_scopes = set(to_text(item.get("source_scope_key")).strip() for item in current_links if to_text(item.get("source_scope_key")).strip())
+    if baseline_scopes != current_scopes:
+        warnings.append({
+            "code": "LINK_SCOPE_SET_CHANGED",
+            "severity": "MEDIUM",
+            "message": "The set of linked-model instance scopes changed between snapshots. Added/removed quantities may include whole-link identity changes and require review.",
+            "values": {
+                "removed_scopes": sorted(baseline_scopes - current_scopes),
+                "added_scopes": sorted(current_scopes - baseline_scopes),
+            },
+        })
+
+    baseline_by_descriptor = {}
+    current_by_descriptor = {}
+    for item in baseline_links:
+        descriptor = _link_descriptor(item)
+        if descriptor != ("", ""):
+            baseline_by_descriptor.setdefault(descriptor, set()).add(to_text(item.get("source_scope_key")).strip())
+    for item in current_links:
+        descriptor = _link_descriptor(item)
+        if descriptor != ("", ""):
+            current_by_descriptor.setdefault(descriptor, set()).add(to_text(item.get("source_scope_key")).strip())
+
+    for descriptor in sorted(set(baseline_by_descriptor.keys()) & set(current_by_descriptor.keys())):
+        before = set(value for value in baseline_by_descriptor.get(descriptor, set()) if value)
+        after = set(value for value in current_by_descriptor.get(descriptor, set()) if value)
+        if before and after and before != after:
+            warnings.append({
+                "code": "LINK_INSTANCE_IDENTITY_CHANGED",
+                "severity": "HIGH",
+                "message": "A linked model with the same document/name evidence has different instance scope identity between snapshots. The link may have been removed and reinserted, so widespread ADDED/REMOVED element changes can be identity-driven.",
+                "values": {
+                    "document_identity_or_name": descriptor[0],
+                    "link_instance_name": descriptor[1],
+                    "baseline_scopes": sorted(before),
+                    "current_scopes": sorted(after),
+                },
+            })
+    return warnings
+
+
+def _comparison_warnings(baseline_snapshot, current_snapshot):
+    warnings = _link_scope_warnings(baseline_snapshot, current_snapshot)
     baseline_number = _project_number(baseline_snapshot)
     current_number = _project_number(current_snapshot)
     if baseline_number and current_number and baseline_number != current_number:
