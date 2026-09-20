@@ -185,6 +185,17 @@ class DiffTests(unittest.TestCase):
         result = compare_snapshots(snapshot([before]), snapshot([after]))
         self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 0)
 
+    def test_recreated_matching_uses_reciprocal_best_candidate(self):
+        old_a = element(key="HOST:a", unique_id="a", mark="A")
+        old_b = element(key="HOST:b", unique_id="b", mark="B")
+        new_b = element(key="HOST:new", unique_id="new", mark="B")
+        result = compare_snapshots(snapshot([old_a, old_b]), snapshot([new_b]))
+        self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 1)
+        self.assertEqual(result["possible_recreated"][0]["baseline_element_key"], "HOST:b")
+        self.assertEqual(result["possible_recreated"][0]["current_element_key"], "HOST:new")
+        self.assertEqual(result["summary"]["REMOVED"], 1)
+        self.assertEqual(result["removed"][0]["element_key"], "HOST:a")
+
     def test_duplicate_identity_is_rejected(self):
         with self.assertRaises(ValueError):
             compare_snapshots(snapshot([element(), element(length=12)]), snapshot([element(key="HOST:u2", unique_id="u2")]))
