@@ -14,7 +14,8 @@ if LIB not in sys.path:
 from revit_estimating.comparison_export import write_revision_comparison
 from revit_estimating.diff import compare_snapshots
 from revit_estimating.hashing import sha256_file
-from revit_estimating.serialization import read_json
+from revit_estimating.serialization import read_json, write_json, write_text
+from revit_estimating.evidence import comparison_csv_texts
 from revit_estimating.validation import validate_comparison_folder, validation_passed
 
 
@@ -64,12 +65,47 @@ class ComparisonExportTests(unittest.TestCase):
         findings = validate_comparison_folder(folder)
         self.assertIn("HASH_MISMATCH", set(item["code"] for item in findings))
 
+    def test_comparison_validator_recomputes_derived_csv_even_if_hash_is_updated(self):
+        folder = self._write()
+        csv_path = os.path.join(folder, "quantity_deltas.csv")
+        with open(csv_path, "a") as stream:
+            stream.write("fabricated,row\n")
+        manifest_path = os.path.join(folder, "comparison_manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["evidence_hashes"]["quantity_deltas.csv"] = sha256_file(csv_path)
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
+        self.assertNotIn("HASH_MISMATCH", codes)
+        self.assertIn("DERIVED_EVIDENCE_MISMATCH", codes)
+
+    def test_comparison_validator_recomputes_result_from_recorded_inputs(self):
+        folder = self._write()
+        result_path = os.path.join(folder, "revision_diff.json")
+        result = read_json(result_path)
+        self.assertTrue(result.get("modified"))
+        result["modified"][0]["changes"][0]["after"] = "fabricated"
+        write_json(result_path, result)
+
+        derived = comparison_csv_texts(result)
+        for name, content in derived.items():
+            write_text(os.path.join(folder, name), content)
+
+        manifest_path = os.path.join(folder, "comparison_manifest.json")
+        manifest = read_json(manifest_path)
+        for name in ("revision_diff.json", "quantity_deltas.csv", "element_changes.csv"):
+            manifest["evidence_hashes"][name] = sha256_file(os.path.join(folder, name))
+        write_json(manifest_path, manifest)
+
+        strict_codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=True))
+        relaxed_codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
+        self.assertIn("COMPARISON_RECOMPUTATION_MISMATCH", strict_codes)
+        self.assertNotIn("COMPARISON_RECOMPUTATION_MISMATCH", relaxed_codes)
+
     def test_comparison_validator_can_skip_original_input_files(self):
         folder = self._write()
         manifest_path = os.path.join(folder, "comparison_manifest.json")
         manifest = read_json(manifest_path)
         manifest["baseline_snapshot"]["path"] = os.path.join(self.root, "missing-baseline.json")
-        from revit_estimating.serialization import write_json
         write_json(manifest_path, manifest)
         strict_codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=True))
         relaxed_codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
