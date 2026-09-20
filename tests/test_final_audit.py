@@ -61,6 +61,12 @@ class FinalAuditTests(unittest.TestCase):
         result = compare_snapshots(_snapshot(""), _snapshot(""))
         self.assertEqual(result.get("warnings"), [])
 
+    def test_element_extraction_failure_is_high_severity_contract(self):
+        path = os.path.join(LIB, "revit_estimating", "revit_adapter.py")
+        with open(path, "r") as stream:
+            source = stream.read()
+        self.assertIn('"rule_id": "ELEMENT_EXTRACTION_FAILED", "severity": "HIGH"', source)
+
 
 if __name__ == "__main__":
     unittest.main()
