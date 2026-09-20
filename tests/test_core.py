@@ -325,6 +325,24 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(len(categories.get("sha256") or ""), 64)
         self.assertGreater(categories.get("category_count", 0), 0)
 
+        embedded_path = os.path.join(folder, "categories_config.json")
+        self.assertTrue(os.path.isfile(embedded_path))
+        self.assertEqual(manifest["evidence_hashes"]["categories_config.json"], sha256_file(embedded_path))
+        self.assertEqual(categories.get("sha256"), sha256_file(embedded_path))
+
+    def test_snapshot_validator_detects_embedded_config_provenance_drift(self):
+        folder = self._build_snapshot()
+        embedded_path = os.path.join(folder, "categories_config.json")
+        with open(embedded_path, "a") as stream:
+            stream.write("\n")
+        manifest_path = os.path.join(folder, "manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["evidence_hashes"]["categories_config.json"] = sha256_file(embedded_path)
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_snapshot_folder(folder))
+        self.assertNotIn("HASH_MISMATCH", codes)
+        self.assertIn("CATEGORY_CONFIG_PROVENANCE_MISMATCH", codes)
+
     def test_snapshot_validator_requires_category_config_provenance(self):
         folder = self._build_snapshot()
         manifest_path = os.path.join(folder, "manifest.json")
