@@ -97,7 +97,7 @@ def _unambiguous_best(candidates, threshold, ambiguity_gap):
         return None
     best_score, best = candidates[0]
     second_score = candidates[1][0] if len(candidates) > 1 else 0.0
-    if second_score and (best_score - second_score) < ambiguity_gap:
+    if second_score and (best_score - second_score) + 1e-9 < ambiguity_gap:
         return None
     return best_score, best
 
