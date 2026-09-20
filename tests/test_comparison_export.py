@@ -117,7 +117,6 @@ class ComparisonExportTests(unittest.TestCase):
         manifest_path = os.path.join(folder, "comparison_manifest.json")
         manifest = read_json(manifest_path)
         manifest["baseline_snapshot"]["sha256"] = "not-a-sha256"
-        from revit_estimating.serialization import write_json
         write_json(manifest_path, manifest)
         codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
         self.assertIn("COMPARISON_INPUT_HASH_INVALID", codes)
@@ -131,6 +130,19 @@ class ComparisonExportTests(unittest.TestCase):
         write_json(manifest_path, manifest)
         codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
         self.assertIn("COMPARISON_STATUS_INVALID", codes)
+
+    def test_comparison_validator_reports_malformed_derived_data_without_crashing(self):
+        folder = self._write()
+        result_path = os.path.join(folder, "revision_diff.json")
+        result = read_json(result_path)
+        result["quantity_deltas"] = ["not-a-row-object"]
+        write_json(result_path, result)
+        manifest_path = os.path.join(folder, "comparison_manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["evidence_hashes"]["revision_diff.json"] = sha256_file(result_path)
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
+        self.assertIn("DERIVED_EVIDENCE_RECOMPUTATION_FAILED", codes)
 
     def test_same_timestamp_creates_versioned_comparison_folder(self):
         created_at = "2026-09-15T12:00:00Z"
