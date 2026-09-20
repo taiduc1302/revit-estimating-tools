@@ -1,0 +1,42 @@
+name: tests
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core-tests:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run offline extension doctor
+        run: python tools/revit_estimating.py doctor --json
+      - name: Run dependency-free unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Run golden CLI revision comparison
+        run: python tools/revit_estimating.py compare tests/fixtures/baseline_snapshot.json tests/fixtures/current_snapshot.json --output .ci-output --allow-standalone --json
+      - name: Build self-contained pyRevit extension
+        run: python tools/revit_estimating.py build-extension --output .ci-output/RevitEstimating.extension.zip --json
+      - name: Upload deployment ZIP
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: RevitEstimating-extension
+          path: .ci-output/RevitEstimating.extension.zip
+          if-no-files-found: error
+          retention-days: 30
+      - name: Run synthetic comparison benchmark
+        run: python tools/revit_estimating.py benchmark --elements 10000 --replacements 600 --max-seconds 30 --json
+      - name: Compile dependency-free core and tools
+        run: python -m compileall -q RevitEstimating.extension/lib tests tools

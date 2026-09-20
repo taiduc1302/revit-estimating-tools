@@ -1,0 +1,6 @@
+title: Compare Revision
+tooltip: Compare two exported raw_snapshot.json files and report element and quantity changes.
+author: Revit Estimating Tools
+min_revit_version: 2021
+engine:
+  clean: true
