@@ -152,6 +152,14 @@ A path ending in `.extension` is now always validated as the deployable extensio
 
 Because `build-extension` intentionally packages only `RevitEstimating.extension`, a root-only license would be absent from the distributed ZIP. The deployable extension now includes `LICENSE`; doctor requires it, tests require it to match the repository license byte-for-byte, and ZIP tests require it to be present.
 
+### Extracted deployment integrity needed a portable trust record
+
+A deterministic ZIP SHA-256 verifies the archive before extraction, but does not help detect later drift inside an extracted extension folder. Built deployment ZIPs now include `deployment_manifest.json`, which records SHA-256 for every deployed runtime file. Standalone doctor verifies all declared files, rejects hash mismatches and missing files, and reports undeclared added files. CI also extracts the built ZIP and smoke-imports the runtime/config without repository neighbors.
+
+### Verified deployment artifact was not retained for handoff
+
+CI now uploads the Python 3.12 deterministic deployment ZIP as a 30-day GitHub Actions artifact. This allows the first live Revit test to use the exact package that passed the offline installability suite rather than a separately rebuilt copy.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
