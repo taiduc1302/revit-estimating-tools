@@ -3,6 +3,7 @@
 from __future__ import absolute_import, print_function
 
 import io
+import hashlib
 import json
 import os
 
@@ -43,6 +44,62 @@ def _resolve_target(target):
     return absolute, os.path.join(absolute, "RevitEstimating.extension")
 
 
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        while True:
+            chunk = stream.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _deployment_files(extension):
+    files = []
+    for dirpath, dirnames, filenames in os.walk(extension):
+        dirnames[:] = sorted([name for name in dirnames if name != "__pycache__"])
+        for filename in sorted(filenames):
+            if filename == "deployment_manifest.json" or filename == ".DS_Store" or filename.endswith((".pyc", ".pyo")):
+                continue
+            path = os.path.join(dirpath, filename)
+            relative = os.path.relpath(path, extension).replace(os.sep, "/")
+            files.append((relative, path))
+    return sorted(files)
+
+
+def _validate_deployment_manifest(extension, findings):
+    path = os.path.join(extension, "deployment_manifest.json")
+    if not os.path.isfile(path):
+        return
+    data = _read_json(path, "DEPLOYMENT_MANIFEST_INVALID", findings)
+    if not isinstance(data, dict):
+        if data is not None:
+            findings.append(finding("DEPLOYMENT_MANIFEST_INVALID", "deployment_manifest.json root must be an object."))
+        return
+    if data.get("schema_version") != SCHEMA_VERSION:
+        findings.append(finding("DEPLOYMENT_MANIFEST_SCHEMA_INVALID", "Deployment manifest schema version does not match the runtime.", {"actual": data.get("schema_version"), "expected": SCHEMA_VERSION}))
+    if data.get("tool") != "Revit Estimating Tools":
+        findings.append(finding("DEPLOYMENT_MANIFEST_TOOL_INVALID", "Deployment manifest tool identity is unexpected.", {"actual": data.get("tool")}))
+    declared = data.get("files")
+    if not isinstance(declared, dict):
+        findings.append(finding("DEPLOYMENT_MANIFEST_FILES_INVALID", "Deployment manifest files must be an object."))
+        return
+
+    actual_files = dict(_deployment_files(extension))
+    declared_names = set(declared.keys())
+    actual_names = set(actual_files.keys())
+    for name in sorted(declared_names - actual_names):
+        findings.append(finding("DEPLOYMENT_FILE_MISSING", "Deployment manifest declares a file that is missing.", {"file": name}))
+    for name in sorted(actual_names - declared_names):
+        findings.append(finding("DEPLOYMENT_FILE_UNDECLARED", "Standalone deployment contains an undeclared file.", {"file": name}))
+    for name in sorted(declared_names & actual_names):
+        expected = str(declared.get(name) or "").lower()
+        actual = _sha256_file(actual_files[name]).lower()
+        if expected != actual:
+            findings.append(finding("DEPLOYMENT_FILE_HASH_MISMATCH", "Standalone deployment file does not match deployment manifest.", {"file": name, "declared": expected, "actual": actual}))
+
+
 def run_doctor(target):
     """Validate a repository checkout or standalone .extension folder without Revit."""
     findings = []
@@ -72,6 +129,8 @@ def run_doctor(target):
     if repository_root is not None:
         if os.path.isdir(os.path.join(repository_root, "lib", "revit_estimating")) or os.path.isfile(os.path.join(repository_root, "config", "categories.json")):
             findings.append(finding("LEGACY_RUNTIME_DUPLICATE", "Legacy repository-level runtime/config duplicates must not exist; the extension is the single runtime source of truth."))
+
+    _validate_deployment_manifest(extension, findings)
 
     if not os.path.isfile(manifest_path):
         findings.append(finding("EXTENSION_MANIFEST_MISSING", "extension.json is missing."))
