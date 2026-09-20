@@ -53,6 +53,8 @@ All notable changes to this project will be documented here.
 - Snapshot CSV review evidence is recomputed from `raw_snapshot.json` during validation, and comparison CSVs are recomputed from `revision_diff.json`.
 - When recorded comparison inputs are available, `revision_diff.json` is recomputed from baseline/current snapshots and must match.
 - Project-name mismatch warnings provide a wrong-project fallback when Revit Project Number is blank or unavailable.
+- Linked-model locations fail closed to `null` when a trustworthy transform is unavailable or fails, avoiding mislabeled link-local coordinates.
+- JSON parsing rejects `NaN`/`Infinity`, and malformed derived evidence becomes a validator finding rather than an unhandled exception.
 
 ### Validation status
 
