@@ -77,6 +77,12 @@ def _project_number(snapshot):
     return to_text(model.get("project_number")).strip()
 
 
+def _project_name(snapshot):
+    metadata = snapshot.get("metadata") or {}
+    model = metadata.get("model") or {}
+    return to_text(model.get("project_name")).strip()
+
+
 def _comparison_warnings(baseline_snapshot, current_snapshot):
     warnings = []
     baseline_number = _project_number(baseline_snapshot)
@@ -87,6 +93,22 @@ def _comparison_warnings(baseline_snapshot, current_snapshot):
             "severity": "HIGH",
             "message": "Baseline and current snapshots have different Revit project numbers. Confirm that these snapshots belong to the intended revision set.",
             "values": {"baseline_project_number": baseline_number, "current_project_number": current_number},
+        })
+        return warnings
+
+    baseline_name = _project_name(baseline_snapshot)
+    current_name = _project_name(current_snapshot)
+    if baseline_name and current_name and baseline_name != current_name:
+        same_number = bool(baseline_number and current_number and baseline_number == current_number)
+        warnings.append({
+            "code": "PROJECT_NAME_MISMATCH",
+            "severity": "MEDIUM" if same_number else "HIGH",
+            "message": "Baseline and current snapshots have different Revit project names. Confirm that these snapshots belong to the intended revision set.",
+            "values": {
+                "baseline_project_name": baseline_name,
+                "current_project_name": current_name,
+                "project_number": baseline_number if same_number else "",
+            },
         })
     return warnings
 
