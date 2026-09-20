@@ -7,19 +7,8 @@ import os
 from . import SCHEMA_VERSION, __version__
 from .hashing import sha256_file
 from .validation import snapshot_input_package_status
-from .serialization import ensure_dir, write_json, write_csv
-from .diff import flattened_change_rows
-
-DELTA_COLUMNS = [
-    "source_scope_key", "source_document", "baseline_source_document", "current_source_document",
-    "category", "family", "type", "system", "material", "size", "unit",
-    "baseline_quantity", "current_quantity", "delta"
-]
-CHANGE_COLUMNS = [
-    "status", "source_document", "category", "element_key", "field", "before", "after", "confidence",
-    "type", "primary_quantity_value", "primary_quantity_unit"
-]
-
+from .serialization import ensure_dir, write_json, write_text
+from .evidence import comparison_csv_texts
 
 def _input_evidence(path):
     if not path:
@@ -54,8 +43,9 @@ def write_revision_comparison(output_root, result, baseline_path=None, current_p
     manifest_path = os.path.join(folder, "comparison_manifest.json")
 
     write_json(result_path, result)
-    write_csv(deltas_path, result.get("quantity_deltas") or [], DELTA_COLUMNS)
-    write_csv(changes_path, flattened_change_rows(result), CHANGE_COLUMNS)
+    derived_csv = comparison_csv_texts(result)
+    write_text(deltas_path, derived_csv["quantity_deltas.csv"])
+    write_text(changes_path, derived_csv["element_changes.csv"])
 
     manifest = {
         "schema_version": SCHEMA_VERSION,
