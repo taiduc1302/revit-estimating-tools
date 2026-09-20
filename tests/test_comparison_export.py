@@ -76,6 +76,26 @@ class ComparisonExportTests(unittest.TestCase):
         self.assertIn("COMPARISON_INPUT_MISSING", strict_codes)
         self.assertNotIn("COMPARISON_INPUT_MISSING", relaxed_codes)
 
+    def test_skip_input_files_still_validates_input_evidence_structure(self):
+        folder = self._write()
+        manifest_path = os.path.join(folder, "comparison_manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["baseline_snapshot"]["sha256"] = "not-a-sha256"
+        from revit_estimating.serialization import write_json
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
+        self.assertIn("COMPARISON_INPUT_HASH_INVALID", codes)
+
+    def test_comparison_validator_rejects_status_claim(self):
+        folder = self._write()
+        manifest_path = os.path.join(folder, "comparison_manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["status"] = "ESTIMATOR_VALIDATED"
+        from revit_estimating.serialization import write_json
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
+        self.assertIn("COMPARISON_STATUS_INVALID", codes)
+
     def test_same_timestamp_creates_versioned_comparison_folder(self):
         created_at = "2026-09-15T12:00:00Z"
         first = self._write(created_at=created_at)
