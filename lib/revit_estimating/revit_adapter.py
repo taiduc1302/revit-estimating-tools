@@ -119,7 +119,7 @@ def _location(element, transform=None):
         try:
             point = transform.OfPoint(point)
         except Exception:
-            pass
+            return None
     return {"x_m": round(point.X * 0.3048, 3), "y_m": round(point.Y * 0.3048, 3), "z_m": round(point.Z * 0.3048, 3)}
 
 
@@ -186,7 +186,14 @@ def _selected_parameters(element, type_element, doc):
 def _source_scope_key(context):
     """Stable logical model/link scope for comparing snapshots across Save As/renames."""
     if context.get("is_linked"):
-        return "LINK:%s" % (to_text(context.get("link_instance_unique_id")).strip() or to_text(context.get("link_instance_name")).strip())
+        unique_id = to_text(context.get("link_instance_unique_id")).strip()
+        if unique_id:
+            return "LINK:%s" % unique_id
+        instance_id = context.get("link_instance_id")
+        if instance_id not in (None, ""):
+            return "LINK:ID:%s" % to_text(instance_id)
+        name = to_text(context.get("link_instance_name")).strip()
+        return "LINK:NAME:%s" % (name or "UNRESOLVED")
     return "HOST"
 
 
@@ -243,7 +250,7 @@ def extract_element(element, context, spec):
         "design_option": _design_option_name(element),
         "mark": mark,
         "size": _size(element, type_element, doc),
-        "location": _location(element, context.get("transform")),
+        "location": None if context.get("is_linked") and context.get("transform") is None else _location(element, context.get("transform")),
         "quantities": quantities,
         "primary_quantity_type": primary_type,
         "primary_quantity_value": primary_value,
