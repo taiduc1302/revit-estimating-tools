@@ -41,6 +41,15 @@ All notable changes to this project will be documented here.
 - Revision comparison output directories are collision-safe and version themselves when timestamps collide.
 - Ribbon commands provide controlled user-facing alerts on top-level failures.
 - Category configuration is required and fail-closed; silent built-in fallback was removed, specs are validated once and cached per command, and config provenance is embedded in snapshots.
+- CSV review exports escape formula-like text so spreadsheet applications do not execute BIM text as formulas; numeric values remain numeric.
+- Canonical JSON rejects non-finite numbers instead of emitting non-standard `NaN`/`Infinity` tokens.
+- Snapshot validation enforces `NOT_ESTIMATOR_VALIDATED`, expected tool identity, and mirrored manifest/raw metadata consistency.
+- Comparison validation keeps checking recorded input evidence structure even when original-file existence checks are explicitly skipped.
+- `POSSIBLE_RECREATED` matching now requires reciprocal, unambiguous best candidates instead of greedy first-match assignment.
+- Invalid non-positive primary quantities remain audited/evidenced but are excluded from aggregated totals and quantity deltas.
+- Model/link audit issue IDs include source/trace values to avoid collisions across repeated link problems.
+- Per-element extraction failures are HIGH severity because they can make quantity evidence incomplete.
+- CLI package output is blocked from overwriting snapshot evidence files.
 
 ### Validation status
 
