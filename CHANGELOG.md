@@ -15,6 +15,7 @@ All notable changes to this project will be documented here.
 - Conservative `POSSIBLE_RECREATED` matching constrained to the same source scope.
 - Revision quantity deltas with baseline/current source-document evidence.
 - Offline snapshot and revision-comparison integrity validation.
+- Self-contained `RevitEstimating.extension` runtime/config layout with deterministic deployment ZIP builder.
 - Unified offline CLI for doctor / validate / compare / validate-comparison / package workflows.
 - Golden baseline/current snapshot fixtures and regression comparison.
 - Revision comparison manifests with hashes of both input snapshots and generated evidence files.
@@ -54,6 +55,8 @@ All notable changes to this project will be documented here.
 - Revision comparison validation reconciles summary counts and baseline/current totals against detailed result groups, including when original input-file checks are skipped.
 - Linked-model scope changes emit explicit warnings, including a HIGH warning when the same link evidence appears under a different instance identity.
 - Offline synthetic comparison benchmarking is available and exercised in CI to guard against performance regressions.
+- Ribbon commands now rely on pyRevit's native extension-local `lib/` path; repository-level runtime/config copies and manual `sys.path` injection were removed.
+- `doctor` can validate either the full repository or a standalone copied `.extension` folder, and CI verifies deterministic extension packaging.
 - Snapshot CSV review evidence is recomputed from `raw_snapshot.json` during validation, and comparison CSVs are recomputed from `revision_diff.json`.
 - When recorded comparison inputs are available, `revision_diff.json` is recomputed from baseline/current snapshots and must match.
 - Project-name mismatch warnings provide a wrong-project fallback when Revit Project Number is blank or unavailable.
