@@ -19,6 +19,22 @@ BUTTON_SCRIPTS = [os.path.join(path, "script.py") for path in BUTTON_DIRS]
 
 
 class ExtensionContractTests(unittest.TestCase):
+    def test_extension_is_self_contained_runtime(self):
+        self.assertTrue(os.path.isfile(os.path.join(EXTENSION, "lib", "revit_estimating", "__init__.py")))
+        self.assertTrue(os.path.isfile(os.path.join(EXTENSION, "config", "categories.json")))
+        self.assertFalse(os.path.isdir(os.path.join(ROOT, "lib", "revit_estimating")))
+        self.assertFalse(os.path.isfile(os.path.join(ROOT, "config", "categories.json")))
+
+    def test_button_scripts_do_not_inject_repository_lib_path(self):
+        failures = []
+        for relative in EXPECTED_BUTTONS:
+            script_path = os.path.join(EXTENSION, relative, "script.py")
+            with open(script_path, "r") as stream:
+                source = stream.read()
+            if "sys.path.insert" in source or 'os.path.join(ROOT, "lib")' in source:
+                failures.append(relative)
+        self.assertEqual(failures, [])
+
     def test_extension_manifest_exists(self):
         path = os.path.join(EXTENSION, "extension.json")
         self.assertTrue(os.path.isfile(path))
@@ -74,7 +90,7 @@ class ExtensionContractTests(unittest.TestCase):
     def test_no_company_specific_name(self):
         forbidden = "".join(("ty", "bo"))
         checked = []
-        for base in (EXTENSION, os.path.join(ROOT, "lib"), os.path.join(ROOT, "docs"), os.path.join(ROOT, "config"), os.path.join(ROOT, "tools")):
+        for base in (EXTENSION, os.path.join(ROOT, "docs"), os.path.join(ROOT, "tools")):
             for dirpath, _, filenames in os.walk(base):
                 for filename in filenames:
                     if not filename.lower().endswith((".py", ".md", ".json", ".yaml", ".yml")):
