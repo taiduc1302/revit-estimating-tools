@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import time
+import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB = os.path.join(ROOT, "RevitEstimating.extension", "lib")
@@ -13,6 +14,7 @@ if LIB not in sys.path:
 
 from revit_estimating.comparison_export import write_revision_comparison
 from revit_estimating.diff import compare_snapshots
+from revit_estimating.hashing import sha256_file
 from revit_estimating.doctor import run_doctor
 from revit_estimating.package import create_estimating_package
 from revit_estimating.snapshot import load_raw_snapshot
@@ -149,6 +151,81 @@ def benchmark_command(args):
     return 0 if payload["passed"] else 1
 
 
+def _extension_files(extension_root):
+    files = []
+    for dirpath, dirnames, filenames in os.walk(extension_root):
+        dirnames[:] = sorted([name for name in dirnames if name != "__pycache__"])
+        for filename in sorted(filenames):
+            if filename.endswith((".pyc", ".pyo")) or filename == ".DS_Store":
+                continue
+            path = os.path.join(dirpath, filename)
+            relative = os.path.relpath(path, extension_root)
+            files.append((relative, path))
+    return sorted(files, key=lambda item: item[0].replace(os.sep, "/"))
+
+
+def build_extension_command(args):
+    findings = run_doctor(ROOT)
+    if findings:
+        return _report_validation(findings, "repository/extension configuration", args.json_output)
+
+    extension_root = os.path.join(ROOT, "RevitEstimating.extension")
+    output_path = os.path.abspath(args.output or os.path.join(ROOT, "dist", "RevitEstimating.extension.zip"))
+    extension_abs = os.path.normcase(os.path.abspath(extension_root))
+    output_abs = os.path.normcase(output_path)
+    if output_abs == extension_abs or output_abs.startswith(extension_abs + os.sep):
+        message = "Extension ZIP output must be outside RevitEstimating.extension."
+        if args.json_output:
+            print_json({"passed": False, "error": message})
+        else:
+            print("FAIL: %s" % message)
+        return 1
+
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    files = _extension_files(extension_root)
+    required = set([
+        "extension.json",
+        os.path.join("lib", "revit_estimating", "__init__.py"),
+        os.path.join("config", "categories.json"),
+    ])
+    available = set(relative for relative, _ in files)
+    missing = sorted(required - available)
+    if missing:
+        message = "Extension build is missing required files: %s" % ", ".join(missing)
+        if args.json_output:
+            print_json({"passed": False, "error": message})
+        else:
+            print("FAIL: %s" % message)
+        return 1
+
+    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for relative, source in files:
+            arcname = ("RevitEstimating.extension/" + relative.replace(os.sep, "/"))
+            with open(source, "rb") as stream:
+                data = stream.read()
+            info = zipfile.ZipInfo(arcname, (1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, data)
+
+    payload = {
+        "passed": True,
+        "package": output_path,
+        "sha256": sha256_file(output_path),
+        "file_count": len(files),
+    }
+    if args.json_output:
+        print_json(payload)
+    else:
+        print("PASS: extension package created at %s" % output_path)
+        print("SHA-256: %s" % payload["sha256"])
+        print("Files: %s" % payload["file_count"])
+    return 0
+
+
 def package_command(args):
     try:
         path = create_estimating_package(args.folder, output_path=args.output)
@@ -170,7 +247,7 @@ def build_parser():
     commands = parser.add_subparsers(dest="command")
 
     doctor = commands.add_parser("doctor", help="Check repository/extension structure without Revit.")
-    doctor.add_argument("repository", nargs="?", default=ROOT)
+    doctor.add_argument("repository", nargs="?", default=ROOT, help="Repository root or standalone RevitEstimating.extension folder.")
     doctor.add_argument("--json", action="store_true", dest="json_output")
     doctor.set_defaults(handler=doctor_command)
 
@@ -192,6 +269,11 @@ def build_parser():
     compare.add_argument("--allow-standalone", action="store_true", help="Allow raw snapshot JSON files that are not part of an intact exported snapshot package. Intended for fixtures/development only.")
     compare.add_argument("--json", action="store_true", dest="json_output")
     compare.set_defaults(handler=compare_command)
+
+    build_extension = commands.add_parser("build-extension", help="Build a deterministic self-contained RevitEstimating.extension ZIP.")
+    build_extension.add_argument("--output", help="Output ZIP path. Defaults to dist/RevitEstimating.extension.zip.")
+    build_extension.add_argument("--json", action="store_true", dest="json_output")
+    build_extension.set_defaults(handler=build_extension_command)
 
     benchmark = commands.add_parser("benchmark", help="Run a synthetic offline revision-comparison benchmark.")
     benchmark.add_argument("--elements", type=int, default=20000, help="Elements per synthetic snapshot.")
