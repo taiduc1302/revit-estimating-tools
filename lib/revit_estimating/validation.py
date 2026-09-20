@@ -14,6 +14,8 @@ EVIDENCE_FILES = REQUIRED_FILES[1:]
 OPTIONAL_EVIDENCE_FILES = ("run_log.json",)
 COMPARISON_REQUIRED_FILES = ("comparison_manifest.json", "revision_diff.json", "quantity_deltas.csv", "element_changes.csv")
 COMPARISON_EVIDENCE_FILES = COMPARISON_REQUIRED_FILES[1:]
+EXPECTED_STATUS = "NOT_ESTIMATOR_VALIDATED"
+EXPECTED_TOOL = "Revit Estimating Tools"
 
 
 def finding(code, message, values=None):
@@ -73,6 +75,41 @@ def _validate_category_config_provenance(manifest, snapshot, findings):
     metadata = snapshot.get("metadata")
     if isinstance(metadata, dict) and metadata.get("extraction_config") != extraction:
         findings.append(finding("EXTRACTION_CONFIG_MISMATCH", "Raw snapshot extraction_config does not match manifest extraction_config."))
+
+
+def _validate_snapshot_manifest_contract(manifest, snapshot, findings):
+    manifest_status = to_text(manifest.get("status")).strip()
+    if manifest_status != EXPECTED_STATUS:
+        findings.append(finding("STATUS_INVALID", "Snapshot manifest status must remain NOT_ESTIMATOR_VALIDATED.", {"actual": manifest_status}))
+    if to_text(manifest.get("tool")).strip() != EXPECTED_TOOL:
+        findings.append(finding("TOOL_IDENTITY_INVALID", "Snapshot manifest tool identity is unexpected.", {"actual": manifest.get("tool")}))
+
+    metadata = snapshot.get("metadata")
+    if not isinstance(metadata, dict):
+        return
+    metadata_status = to_text(metadata.get("status")).strip()
+    if metadata_status != EXPECTED_STATUS:
+        findings.append(finding("SNAPSHOT_STATUS_INVALID", "Raw snapshot metadata status must remain NOT_ESTIMATOR_VALIDATED.", {"actual": metadata_status}))
+
+    mirrored_fields = (
+        "tool", "tool_version", "status", "created_at", "project_name", "model",
+        "element_count", "audit_issue_count", "extraction_config",
+    )
+    mismatched = [name for name in mirrored_fields if manifest.get(name) != metadata.get(name)]
+    if mismatched:
+        findings.append(finding(
+            "MANIFEST_METADATA_MISMATCH",
+            "Manifest metadata does not match the hashed raw snapshot metadata.",
+            {"fields": mismatched},
+        ))
+
+
+def _validate_comparison_manifest_contract(manifest, findings):
+    status = to_text(manifest.get("status")).strip()
+    if status != EXPECTED_STATUS:
+        findings.append(finding("COMPARISON_STATUS_INVALID", "Comparison manifest status must remain NOT_ESTIMATOR_VALIDATED.", {"actual": status}))
+    if to_text(manifest.get("tool")).strip() != EXPECTED_TOOL:
+        findings.append(finding("COMPARISON_TOOL_IDENTITY_INVALID", "Comparison manifest tool identity is unexpected.", {"actual": manifest.get("tool")}))
 
 
 def _validate_declared_hashes(folder, names, expected, findings):
@@ -171,6 +208,7 @@ def validate_snapshot_folder(folder):
     if manifest_version and snapshot_version and manifest_version != snapshot_version:
         findings.append(finding("SCHEMA_VERSION_MISMATCH", "Manifest and raw snapshot schema versions do not match.", {"manifest": manifest_version, "snapshot": snapshot_version}))
 
+    _validate_snapshot_manifest_contract(manifest, snapshot, findings)
     _validate_category_config_provenance(manifest, snapshot, findings)
     expected_hashes = _validate_declared_hashes(folder, EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
     _validate_optional_hashes(folder, OPTIONAL_EVIDENCE_FILES, expected_hashes, findings)
@@ -220,7 +258,7 @@ def validate_snapshot_folder(folder):
     return findings
 
 
-def _validate_input_snapshot_evidence(item, label, findings):
+def _validate_input_snapshot_evidence(item, label, findings, verify_file=True):
     if not isinstance(item, dict):
         findings.append(finding("COMPARISON_INPUT_INVALID", "%s snapshot evidence must be an object." % label))
         return
@@ -229,6 +267,16 @@ def _validate_input_snapshot_evidence(item, label, findings):
     status = to_text(item.get("status")).strip()
     if status != "HASHED":
         findings.append(finding("COMPARISON_INPUT_NOT_HASHED", "%s snapshot was not recorded as hashed." % label, {"status": status}))
+    if not path:
+        findings.append(finding("COMPARISON_INPUT_PATH_MISSING", "%s snapshot evidence is missing its recorded path." % label))
+    if not _valid_sha256(declared):
+        findings.append(finding("COMPARISON_INPUT_HASH_INVALID", "%s snapshot SHA-256 is missing or malformed." % label, {"sha256": declared}))
+
+    package_status = to_text(item.get("package_status")).strip()
+    if package_status not in ("VALID_PACKAGE", "STANDALONE_UNVERIFIED"):
+        findings.append(finding("COMPARISON_INPUT_PACKAGE_STATUS_INVALID", "%s snapshot package status is invalid." % label, {"status": package_status}))
+
+    if not verify_file:
         return
     if not path or not os.path.isfile(path):
         findings.append(finding("COMPARISON_INPUT_MISSING", "%s snapshot file is no longer available at the recorded path." % label, {"path": path}))
@@ -237,10 +285,7 @@ def _validate_input_snapshot_evidence(item, label, findings):
     if not declared or declared != actual:
         findings.append(finding("COMPARISON_INPUT_HASH_MISMATCH", "%s snapshot no longer matches the comparison manifest." % label, {"path": path, "declared": declared, "actual": actual}))
 
-    package_status = to_text(item.get("package_status")).strip()
-    if package_status not in ("VALID_PACKAGE", "STANDALONE_UNVERIFIED"):
-        findings.append(finding("COMPARISON_INPUT_PACKAGE_STATUS_INVALID", "%s snapshot package status is invalid." % label, {"status": package_status}))
-    elif package_status == "VALID_PACKAGE":
+    if package_status == "VALID_PACKAGE":
         package_findings = validate_snapshot_folder(os.path.dirname(path))
         if package_findings:
             findings.append(finding(
@@ -270,6 +315,7 @@ def validate_comparison_folder(folder, verify_inputs=True):
     if manifest_version and result_version and manifest_version != result_version:
         findings.append(finding("SCHEMA_VERSION_MISMATCH", "Comparison manifest and revision diff schema versions do not match.", {"manifest": manifest_version, "revision_diff": result_version}))
 
+    _validate_comparison_manifest_contract(manifest, findings)
     _validate_declared_hashes(folder, COMPARISON_EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
 
     manifest_summary = manifest.get("summary")
@@ -279,9 +325,8 @@ def validate_comparison_folder(folder, verify_inputs=True):
     elif manifest_summary != result_summary:
         findings.append(finding("COMPARISON_SUMMARY_MISMATCH", "Comparison manifest summary does not match revision_diff.json."))
 
-    if verify_inputs:
-        _validate_input_snapshot_evidence(manifest.get("baseline_snapshot"), "Baseline", findings)
-        _validate_input_snapshot_evidence(manifest.get("current_snapshot"), "Current", findings)
+    _validate_input_snapshot_evidence(manifest.get("baseline_snapshot"), "Baseline", findings, verify_file=verify_inputs)
+    _validate_input_snapshot_evidence(manifest.get("current_snapshot"), "Current", findings, verify_file=verify_inputs)
     return findings
 
 
