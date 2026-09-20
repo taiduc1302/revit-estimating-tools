@@ -55,6 +55,8 @@ All notable changes to this project will be documented here.
 - Revision comparison validation reconciles summary counts and baseline/current totals against detailed result groups, including when original input-file checks are skipped.
 - Linked-model scope changes emit explicit warnings, including a HIGH warning when the same link evidence appears under a different instance identity.
 - Offline synthetic comparison benchmarking is available and exercised in CI to guard against performance regressions.
+- Built deployment ZIPs include a deterministic `deployment_manifest.json` with SHA-256 for every runtime file; standalone doctor detects changed, missing, or undeclared deployed files.
+- CI retains the Python 3.12 verified deployment ZIP as a 30-day GitHub Actions artifact for live-validation handoff.
 - Ribbon commands now rely on pyRevit's native extension-local `lib/` path; repository-level runtime/config copies and manual `sys.path` injection were removed.
 - `doctor` can validate either the full repository or a standalone copied `.extension` folder, and CI verifies deterministic extension packaging.
 - Deployment doctor rejects malformed `.extension` paths/double nesting, and the self-contained package now carries a license notice verified against the repository license.
