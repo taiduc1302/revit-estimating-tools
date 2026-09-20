@@ -37,6 +37,7 @@ A snapshot package contains:
   quantities.csv
   audit_issues.csv
   summary.csv
+  categories_config.json
   run_log.json
 ```
 
