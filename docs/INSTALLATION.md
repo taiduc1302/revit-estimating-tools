@@ -50,7 +50,8 @@ The command:
 - packages only `RevitEstimating.extension`;
 - excludes Python cache files;
 - uses stable file ordering and ZIP timestamps;
-- reports the resulting SHA-256.
+- reports the resulting ZIP SHA-256;
+- embeds `deployment_manifest.json` containing SHA-256 for every deployed runtime file.
 
 After extraction, verify that the path is:
 
@@ -78,7 +79,9 @@ A copied standalone extension can be checked with:
 python tools/revit_estimating.py doctor <path-to-RevitEstimating.extension> --json
 ```
 
-A passing standalone doctor confirms the expected `.extension` folder suffix, extension structure, runtime library, governed config, license notice, button metadata, read-only transaction contract, and absence of legacy repository-path injection. Passing the outer folder of an accidentally double-nested extraction fails rather than being treated as a repository root. It does **not** prove Autodesk Revit runtime behavior.
+A passing standalone doctor confirms the expected `.extension` folder suffix, extension structure, runtime library, governed config, license notice, button metadata, read-only transaction contract, and absence of legacy repository-path injection. When `deployment_manifest.json` is present (as it is in the built ZIP), doctor also verifies that every declared deployed file is present and unchanged and that no undeclared runtime files were added. Passing the outer folder of an accidentally double-nested extraction fails rather than being treated as a repository root. It does **not** prove Autodesk Revit runtime behavior.
+
+The GitHub Actions Python 3.12 job retains the verified `RevitEstimating.extension.zip` as a workflow artifact for 30 days, so the exact CI-tested package can be used for the first live Revit validation instead of rebuilding it locally.
 
 ## First live Revit validation
 
