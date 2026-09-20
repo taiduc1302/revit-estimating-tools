@@ -76,6 +76,34 @@ Python 3.8/3.11/3.12 CI does not prove IronPython 2.7 syntax/runtime compatibili
 
 Compare Revision previously validated snapshot schema/identity but did not require the selected raw JSON to still belong to an intact exported snapshot package. A modified or orphaned `raw_snapshot.json` could therefore be hashed as a new comparison input without first proving it still matched its snapshot manifest. pyRevit and the CLI now require intact validated snapshot packages by default. Standalone raw JSON is available only through the explicit CLI `--allow-standalone` development/fixture override and is labelled `STANDALONE_UNVERIFIED` in comparison evidence.
 
+### Spreadsheet CSV output allowed formula-like text
+
+CSV evidence is commonly opened in Excel. Text values beginning with spreadsheet formula prefixes could therefore be interpreted as formulas even though the underlying BIM value was only text. CSV serialization now prefixes formula-like text with an apostrophe while leaving true numeric values unchanged. Raw JSON evidence preserves the original value.
+
+### Manifest status and metadata could diverge from hashed raw evidence
+
+The manifest is the hash index for package evidence and is not itself inside its own hash set. Validation now requires `NOT_ESTIMATOR_VALIDATED`, checks the expected tool identity, and verifies that mirrored manifest metadata matches the metadata embedded in hashed `raw_snapshot.json`. Comparison manifests apply the same status/tool contract. This catches accidental or naive status escalation, but it does not provide cryptographic authenticity against an actor who can rewrite the manifest and recompute all hashes.
+
+### Comparison input metadata was under-validated when source files were intentionally skipped
+
+`validate-comparison --skip-input-files` is intended to waive only the requirement that original snapshots still exist at their recorded paths. It now continues to validate recorded input path/hash/status/package-status structure, including SHA-256 format.
+
+### Recreated-element inference used greedy first-match selection
+
+A removed element processed earlier could claim a current element even when another removed element was a materially better match. `POSSIBLE_RECREATED` now requires reciprocal, unambiguous best matches in both directions. Inferred identity remains advisory.
+
+### Audit issue identities could collide for repeated link problems
+
+Model-level/link issues with the same rule and message could share an `issue_id` even when their trace values referred to different link instances. Issue identity now includes source and deterministic values such as `link_instance_id`.
+
+### Non-finite JSON and non-positive quantities needed stricter fail-closed behavior
+
+Canonical JSON serialization now rejects `NaN` and `Infinity` rather than emitting non-standard JSON. Primary quantities less than or equal to zero remain visible in element evidence and trigger HIGH audit findings, but they are excluded from aggregated totals and revision quantity deltas so an invalid negative value cannot reduce a takeoff total.
+
+### Per-element extraction failure severity was too low
+
+If one element cannot be extracted, the resulting snapshot can be quantity-incomplete. `ELEMENT_EXTRACTION_FAILED` is now HIGH severity rather than MEDIUM.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
@@ -83,18 +111,21 @@ The automated suite covers or statically checks:
 - deterministic normalization and serialization;
 - stable host identity across file rename / Save As;
 - separation of repeated Revit link instances;
-- conservative recreated-element inference;
+- conservative reciprocal-best recreated-element inference;
 - duplicate identity and unsupported-schema rejection;
 - numeric-size comparison independent of display-unit formatting;
 - audit-only exclusion from quantity aggregation;
 - movement and Assembly Code revision detection;
-- snapshot hash tampering;
+- snapshot hash tampering, manifest/raw metadata consistency, and validation-status enforcement;
 - run-log hash tampering;
-- revision-comparison input/output hashes and source-package integrity enforcement;
+- revision-comparison input/output hashes, source-package integrity enforcement, and structural input-evidence validation even when source-file existence checks are skipped;
 - collision-safe output folders;
 - project-number mismatch warnings;
 - expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, read-only transaction contract, and a static IronPython compatibility proxy;
 - fail-closed category configuration loading, caching, and SHA-256 provenance;
+- spreadsheet-formula escaping for CSV review surfaces while preserving numeric values;
+- rejection of non-finite JSON values and exclusion of non-positive quantities from aggregate totals;
+- collision-resistant audit issue identities and HIGH severity for per-element extraction failures;
 - absence of the removed company-specific project name in governed source/docs/config/tool paths.
 
 The post-audit GitHub Actions matrix passed the offline doctor, dependency-free unit tests, golden CLI revision comparison, and bytecode compilation on Python 3.8, 3.11, and 3.12.
