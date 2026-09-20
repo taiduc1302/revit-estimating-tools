@@ -8,6 +8,12 @@ This document records compatibility assumptions that should be re-checked when c
 - Revit API declared minimum: Revit 2021+. Compatibility-critical BuiltInParameter identifiers were cross-checked against the Revit 2021.1 enumeration as well as the 2026 reference; actual Revit 2021 runtime behavior remains a live-validation item.
 - V0.1 UI scripts: default pyRevit IronPython engine
 
+## pyRevit extension-local library path
+
+The deployable `RevitEstimating.extension` contains its runtime under `lib/revit_estimating`. Current pyRevit extension parsing treats a component-local `lib/` directory as a module path inherited by child commands, so V0.1 button scripts deliberately do not inject repository-relative paths into `sys.path`. Offline tools add that same extension-local `lib` explicitly because they execute outside pyRevit.
+
+The offline doctor and extension contract tests reject legacy repository-level runtime/config duplicates and button-level path injection. Re-check this assumption if pyRevit's extension loader changes.
+
 ## Why the UI scripts stay on the default Python engine
 
 The commands use `pyrevit.forms.pick_file` and `pyrevit.forms.pick_folder`. Current pyRevit source implements these helpers in the IronPython forms layer, while the CPython forms compatibility layer marks them unsupported. Do not add a `#! python3` shebang to the four V0.1 button scripts until their UI/file-picker path is replaced or CPython support changes.
