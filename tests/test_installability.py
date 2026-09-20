@@ -38,6 +38,21 @@ class InstallabilityTests(unittest.TestCase):
         findings = run_doctor(target)
         self.assertTrue(validation_passed(findings), findings)
 
+    def test_extension_without_required_suffix_fails_doctor(self):
+        target = os.path.join(self.root, "RevitEstimating")
+        shutil.copytree(EXTENSION, target)
+        codes = set(item.get("code") for item in run_doctor(target))
+        self.assertIn("EXTENSION_SUFFIX_INVALID", codes)
+
+    def test_double_nested_extension_fails_at_outer_folder(self):
+        outer = os.path.join(self.root, "RevitEstimating.extension")
+        inner = os.path.join(outer, "RevitEstimating.extension")
+        os.makedirs(outer)
+        shutil.copytree(EXTENSION, inner)
+        codes = set(item.get("code") for item in run_doctor(outer))
+        self.assertIn("EXTENSION_MANIFEST_MISSING", codes)
+        self.assertIn("EXTENSION_RUNTIME_MISSING", codes)
+
     def test_standalone_runtime_loads_embedded_category_config(self):
         target = self._copy_extension()
         copied_lib = os.path.join(target, "lib")
