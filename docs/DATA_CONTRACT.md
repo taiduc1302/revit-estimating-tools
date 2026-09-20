@@ -22,7 +22,7 @@ This design prevents a simple `Save As` or filename change from turning an other
 
 - `category`, `family`, `type`, `system`, `material`, `level`, `workset`, `phase_created`, `phase_demolished`, `design_option`, `mark`
 - `size` — normalized physical dimensions where available; formatted `size_text` is only a fallback when numeric dimensions are unavailable
-- `location` — representative host-coordinate point in metres where available
+- `location` — representative host-coordinate point in metres where available. Linked elements publish no location when a trustworthy link transform is unavailable or cannot be applied; link-local coordinates are never relabelled as host coordinates.
 - `quantities` — raw Revit internal values plus normalized SI quantities
 - `primary_quantity_type`, `primary_quantity_value`, `primary_quantity_unit`
 - `quantity_aggregation_excluded` — true for audit-only categories; these elements remain in evidence/audit data but do not contribute to quantity aggregation or revision quantity deltas
@@ -94,7 +94,7 @@ Use `python tools/revit_estimating.py validate <snapshot-folder>` or the focused
 
 SHA-256 evidence hashes provide corruption/tamper detection only while the manifest itself is trusted. V0.1 does not digitally sign manifests and therefore does not provide cryptographic authenticity against an actor who can edit the manifest and recompute every evidence hash. External signing or a trusted immutable hash registry is a later governance capability.
 
-CSV exports are spreadsheet-safe review surfaces: formula-like text values are prefixed so Excel does not execute them as formulas. `raw_snapshot.json` remains the authoritative unmodified evidence representation for those text values.
+CSV exports are spreadsheet-safe review surfaces: formula-like text values are prefixed so Excel does not execute them as formulas. `raw_snapshot.json` remains the authoritative unmodified evidence representation for those text values. JSON writing and reading reject non-finite `NaN` / `Infinity` values so exported evidence stays within strict JSON numeric semantics.
 
 ## Validation status
 
