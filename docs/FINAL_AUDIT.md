@@ -144,6 +144,14 @@ The original button scripts manually prepended a repository-level `lib/` path, w
 
 The offline CLI now provides `build-extension`, which first runs doctor and then creates a deterministic ZIP containing only `RevitEstimating.extension`. File ordering and ZIP timestamps are fixed; installability tests build twice and require identical SHA-256 values. CI also builds the artifact on every matrix job.
 
+### Malformed deployment paths could pass a loose structural check
+
+A path ending in `.extension` is now always validated as the deployable extension at that exact location. Doctor rejects missing `.extension` suffixes and fails an outer double-nested `.extension` folder instead of silently treating it as a repository root.
+
+### Deployment ZIP omitted the repository license notice
+
+Because `build-extension` intentionally packages only `RevitEstimating.extension`, a root-only license would be absent from the distributed ZIP. The deployable extension now includes `LICENSE`; doctor requires it, tests require it to match the repository license byte-for-byte, and ZIP tests require it to be present.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
@@ -162,7 +170,7 @@ The automated suite covers or statically checks:
 - collision-safe output folders;
 - project-number mismatch warnings;
 - expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, read-only transaction contract, no repository-path injection, and a static IronPython compatibility proxy;
-- standalone `.extension` doctor validation, copied-runtime/config import, and deterministic deployment-ZIP SHA-256;
+- standalone `.extension` doctor validation, malformed/double-nested path rejection, copied-runtime/config import, deployable-license parity, and deterministic deployment-ZIP SHA-256;
 - fail-closed category configuration loading, caching, and SHA-256 provenance;
 - spreadsheet-formula escaping for CSV review surfaces while preserving numeric values;
 - rejection of non-finite JSON values and exclusion of non-positive quantities from aggregate totals;
