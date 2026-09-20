@@ -81,6 +81,41 @@ class FinalAuditTests(unittest.TestCase):
             source = stream.read()
         self.assertIn('"rule_id": "ELEMENT_EXTRACTION_FAILED", "severity": "HIGH"', source)
 
+    def test_link_scope_set_change_warns(self):
+        baseline = _snapshot("A-100")
+        current = _snapshot("A-100")
+        baseline["metadata"]["model"]["linked_models"] = [{
+            "source_scope_key": "LINK:old",
+            "document": "MEP.rvt",
+            "document_identity": "C:/models/MEP.rvt",
+            "link_instance_name": "MEP : 1",
+        }]
+        current["metadata"]["model"]["linked_models"] = [{
+            "source_scope_key": "LINK:new",
+            "document": "MEP.rvt",
+            "document_identity": "C:/models/MEP.rvt",
+            "link_instance_name": "MEP : 1",
+        }]
+        warnings = compare_snapshots(baseline, current).get("warnings") or []
+        codes = set(item.get("code") for item in warnings)
+        self.assertIn("LINK_SCOPE_SET_CHANGED", codes)
+        self.assertIn("LINK_INSTANCE_IDENTITY_CHANGED", codes)
+
+    def test_same_link_scope_does_not_warn(self):
+        baseline = _snapshot("A-100")
+        current = _snapshot("A-100")
+        link = {
+            "source_scope_key": "LINK:same",
+            "document": "MEP.rvt",
+            "document_identity": "C:/models/MEP.rvt",
+            "link_instance_name": "MEP : 1",
+        }
+        baseline["metadata"]["model"]["linked_models"] = [dict(link)]
+        current["metadata"]["model"]["linked_models"] = [dict(link)]
+        codes = set(item.get("code") for item in compare_snapshots(baseline, current).get("warnings") or [])
+        self.assertNotIn("LINK_SCOPE_SET_CHANGED", codes)
+        self.assertNotIn("LINK_INSTANCE_IDENTITY_CHANGED", codes)
+
     def test_linked_location_fails_closed_without_transform(self):
         path = os.path.join(LIB, "revit_estimating", "revit_adapter.py")
         with open(path, "r") as stream:
