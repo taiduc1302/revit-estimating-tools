@@ -17,7 +17,7 @@ from revit_estimating.audit import audit_element, audit_model
 from revit_estimating.diff import compare_snapshots
 from revit_estimating.config import category_config_evidence
 from revit_estimating.fingerprint import similarity_score
-from revit_estimating.hashing import sha256_text
+from revit_estimating.hashing import sha256_text, sha256_file
 from revit_estimating.logging_utils import write_run_log
 from revit_estimating.normalization import length_ft_to_m, area_sqft_to_sqm, volume_cuft_to_cum
 from revit_estimating.package import create_estimating_package
@@ -360,6 +360,19 @@ class PackageTests(unittest.TestCase):
             stream.write("tampered\n")
         findings = validate_snapshot_folder(folder)
         self.assertIn("HASH_MISMATCH", set(item["code"] for item in findings))
+
+    def test_snapshot_validator_recomputes_derived_csv_even_if_hash_is_updated(self):
+        folder = self._build_snapshot()
+        csv_path = os.path.join(folder, "elements.csv")
+        with open(csv_path, "a") as stream:
+            stream.write("fabricated,row\n")
+        manifest_path = os.path.join(folder, "manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["evidence_hashes"]["elements.csv"] = sha256_file(csv_path)
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_snapshot_folder(folder))
+        self.assertNotIn("HASH_MISMATCH", codes)
+        self.assertIn("DERIVED_EVIDENCE_MISMATCH", codes)
 
     def test_package_output_cannot_overwrite_snapshot_evidence(self):
         folder = self._build_snapshot()
