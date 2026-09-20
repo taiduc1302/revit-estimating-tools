@@ -21,7 +21,7 @@ from revit_estimating.hashing import sha256_text
 from revit_estimating.logging_utils import write_run_log
 from revit_estimating.normalization import length_ft_to_m, area_sqft_to_sqm, volume_cuft_to_cum
 from revit_estimating.package import create_estimating_package
-from revit_estimating.serialization import canonical_json, read_json, write_json
+from revit_estimating.serialization import canonical_json, read_json, write_json, write_csv
 from revit_estimating.snapshot import write_snapshot_package
 from revit_estimating.manifest import build_manifest
 from revit_estimating.validation import validate_snapshot_folder, validate_snapshot_input_file, validation_passed
@@ -221,6 +221,23 @@ class SerializationTests(unittest.TestCase):
 
     def test_hash_stable(self):
         self.assertEqual(sha256_text("abc"), sha256_text("abc"))
+
+    def test_csv_escapes_formula_like_text_but_preserves_numeric_values(self):
+        root = tempfile.mkdtemp()
+        try:
+            path = os.path.join(root, "safe.csv")
+            write_csv(path, [
+                {"text": "=HYPERLINK(\"https://example.invalid\")", "number": -2.5},
+                {"text": "  +SUM(1,2)", "number": 3.0},
+            ], ["text", "number"])
+            with open(path, "r") as stream:
+                content = stream.read()
+            self.assertIn("'=HYPERLINK", content)
+            self.assertIn("'  +SUM", content)
+            self.assertIn("-2.5", content)
+            self.assertNotIn("'-2.5", content)
+        finally:
+            shutil.rmtree(root)
 
 
 class PackageTests(unittest.TestCase):
