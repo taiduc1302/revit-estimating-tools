@@ -36,10 +36,10 @@ def _element():
     }
 
 
-def _snapshot(project_number):
+def _snapshot(project_number, project_name="Project A"):
     return {
         "schema_version": "0.1",
-        "metadata": {"model": {"project_number": project_number}},
+        "metadata": {"model": {"project_number": project_number, "project_name": project_name}},
         "elements": [_element()],
         "audit_issues": [],
     }
@@ -60,6 +60,20 @@ class FinalAuditTests(unittest.TestCase):
     def test_blank_project_numbers_do_not_create_false_warning(self):
         result = compare_snapshots(_snapshot(""), _snapshot(""))
         self.assertEqual(result.get("warnings"), [])
+
+    def test_project_name_mismatch_is_high_when_numbers_are_blank(self):
+        result = compare_snapshots(_snapshot("", "Project A"), _snapshot("", "Project B"))
+        self.assertEqual(len(result.get("warnings") or []), 1)
+        warning = result["warnings"][0]
+        self.assertEqual(warning["code"], "PROJECT_NAME_MISMATCH")
+        self.assertEqual(warning["severity"], "HIGH")
+
+    def test_project_name_mismatch_is_medium_when_project_number_matches(self):
+        result = compare_snapshots(_snapshot("A-100", "Old Name"), _snapshot("A-100", "New Name"))
+        self.assertEqual(len(result.get("warnings") or []), 1)
+        warning = result["warnings"][0]
+        self.assertEqual(warning["code"], "PROJECT_NAME_MISMATCH")
+        self.assertEqual(warning["severity"], "MEDIUM")
 
     def test_element_extraction_failure_is_high_severity_contract(self):
         path = os.path.join(LIB, "revit_estimating", "revit_adapter.py")
