@@ -7,7 +7,7 @@ import json
 import os
 import re
 
-from .utils import to_text
+from .utils import to_text, text_type, binary_type
 
 
 def ensure_dir(path):
@@ -42,10 +42,22 @@ def read_json(path):
         return json.loads(stream.read())
 
 
+def _spreadsheet_safe_text(text):
+    """Prevent formula-like text values from being executed by spreadsheet applications."""
+    candidate = text.lstrip(u" \t\r")
+    if candidate[:1] in (u"=", u"+", u"-", u"@"):
+        return u"'" + text
+    return text
+
+
 def _csv_cell(value):
+    is_text_value = isinstance(value, (text_type, binary_type))
     if isinstance(value, (dict, list, tuple)):
         value = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        is_text_value = False
     text = to_text(value)
+    if is_text_value:
+        text = _spreadsheet_safe_text(text)
     if any(ch in text for ch in [u",", u"\"", u"\n", u"\r"]):
         return u'"' + text.replace(u'"', u'""') + u'"'
     return text
