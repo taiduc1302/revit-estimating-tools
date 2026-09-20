@@ -5,7 +5,7 @@ from __future__ import absolute_import, division, print_function
 from pyrevit import DB
 
 from .collectors import collect_document_contexts, collect_category_elements
-from .config import load_category_specs
+from .config import load_category_specs, category_config_evidence
 from .fingerprint import strict_fingerprint, loose_fingerprint
 from .normalization import length_ft_to_m, length_ft_to_mm, area_sqft_to_sqm, volume_cuft_to_cum
 from .parameters import element_id_value, first_double, first_text, get_parameter, parameter_text
@@ -293,11 +293,13 @@ def model_metadata(host_doc, contexts, app=None):
 
 
 def extract_model(host_doc, app=None):
+    category_specs = load_category_specs()
+    config_evidence = category_config_evidence()
     contexts, link_issues = collect_document_contexts(host_doc)
     elements = []
     skipped_categories = []
     for context in contexts:
-        for spec in load_category_specs():
+        for spec in category_specs:
             try:
                 category_elements = collect_category_elements(context, spec)
             except Exception as exc:
@@ -331,4 +333,4 @@ def extract_model(host_doc, app=None):
     elements.sort(key=lambda x: x.get("element_key", ""))
     metadata = model_metadata(host_doc, contexts, app=app)
     metadata["skipped_categories"] = list(skipped_categories)
-    return {"elements": elements, "link_issues": link_issues, "model_metadata": metadata, "skipped_categories": skipped_categories}
+    return {"elements": elements, "link_issues": link_issues, "model_metadata": metadata, "skipped_categories": skipped_categories, "category_config": config_evidence}

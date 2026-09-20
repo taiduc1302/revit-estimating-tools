@@ -41,6 +41,40 @@ def _validate_schema_value(version, source, findings):
     return value
 
 
+def _valid_sha256(value):
+    text = to_text(value).strip().lower()
+    return len(text) == 64 and all(ch in "0123456789abcdef" for ch in text)
+
+
+def _validate_category_config_provenance(manifest, snapshot, findings):
+    extraction = manifest.get("extraction_config")
+    if not isinstance(extraction, dict):
+        findings.append(finding("EXTRACTION_CONFIG_INVALID", "Manifest extraction_config must be an object."))
+        return
+    categories = extraction.get("categories")
+    if not isinstance(categories, dict):
+        findings.append(finding("CATEGORY_CONFIG_EVIDENCE_MISSING", "Manifest must record category configuration provenance."))
+        return
+
+    required = ("path", "sha256", "schema_version", "category_count", "mode")
+    missing = [name for name in required if categories.get(name) in (None, "")]
+    if missing:
+        findings.append(finding("CATEGORY_CONFIG_EVIDENCE_INCOMPLETE", "Category configuration provenance is incomplete.", {"missing": missing}))
+    if categories.get("mode") != "REQUIRED_FAIL_CLOSED":
+        findings.append(finding("CATEGORY_CONFIG_MODE_INVALID", "Category configuration must be recorded as fail-closed.", {"mode": categories.get("mode")}))
+    if not _valid_sha256(categories.get("sha256")):
+        findings.append(finding("CATEGORY_CONFIG_HASH_INVALID", "Category configuration SHA-256 is missing or malformed."))
+    try:
+        if int(categories.get("category_count")) <= 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        findings.append(finding("CATEGORY_CONFIG_COUNT_INVALID", "Category configuration category_count must be a positive integer."))
+
+    metadata = snapshot.get("metadata")
+    if isinstance(metadata, dict) and metadata.get("extraction_config") != extraction:
+        findings.append(finding("EXTRACTION_CONFIG_MISMATCH", "Raw snapshot extraction_config does not match manifest extraction_config."))
+
+
 def _validate_declared_hashes(folder, names, expected, findings):
     if not isinstance(expected, dict):
         findings.append(finding("EVIDENCE_HASHES_INVALID", "Manifest evidence_hashes must be an object."))
@@ -95,6 +129,7 @@ def validate_snapshot_folder(folder):
     if manifest_version and snapshot_version and manifest_version != snapshot_version:
         findings.append(finding("SCHEMA_VERSION_MISMATCH", "Manifest and raw snapshot schema versions do not match.", {"manifest": manifest_version, "snapshot": snapshot_version}))
 
+    _validate_category_config_provenance(manifest, snapshot, findings)
     expected_hashes = _validate_declared_hashes(folder, EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
     _validate_optional_hashes(folder, OPTIONAL_EVIDENCE_FILES, expected_hashes, findings)
 

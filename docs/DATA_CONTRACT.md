@@ -50,12 +50,27 @@ This design prevents a simple `Save As` or filename change from turning an other
 
 Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity when both snapshots have non-empty Revit Project Number values and those values differ.
 
+## Configuration provenance
+
+`config/categories.json` is required at runtime. Extraction fails closed if it is missing, malformed, uses an unsupported schema version, contains duplicate names/BuiltInCategory mappings, declares an unsupported primary quantity, or uses non-boolean control flags.
+
+The snapshot manifest `extraction_config.categories` object records:
+
+- `path` — repository-relative config path;
+- `sha256` — SHA-256 of the exact category config used;
+- `schema_version` — category-config schema version;
+- `category_count` — number of governed category specs loaded;
+- `mode` — `REQUIRED_FAIL_CLOSED`.
+
+Category specs are cached for the duration of the command so per-element audit rules do not repeatedly read the config file.
+
 ## Snapshot integrity
 
 `manifest.json` records hashes for exported evidence files. Offline validation checks:
 
 - all required package files exist;
 - manifest and raw snapshot schema versions agree and are supported;
+- category-configuration provenance is present, structurally valid, fail-closed, and consistent between manifest and raw snapshot metadata;
 - every declared evidence hash matches the file on disk;
 - optional `run_log.json`, when present, is declared and hashed;
 - `elements` and `audit_issues` have the expected container types;

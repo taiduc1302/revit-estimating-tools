@@ -5,18 +5,20 @@ This document records compatibility assumptions that should be re-checked when c
 ## Current pilot target
 
 - pyRevit: 6.5.x (pilot reference: 6.5.5)
-- Revit API baseline: Revit 2021+ bundle minimum, with parameter names checked against the Revit 2026 API enumeration
+- Revit API declared minimum: Revit 2021+. Compatibility-critical BuiltInParameter identifiers were cross-checked against the Revit 2021.1 enumeration as well as the 2026 reference; actual Revit 2021 runtime behavior remains a live-validation item.
 - V0.1 UI scripts: default pyRevit IronPython engine
 
 ## Why the UI scripts stay on the default Python engine
 
 The commands use `pyrevit.forms.pick_file` and `pyrevit.forms.pick_folder`. Current pyRevit source implements these helpers in the IronPython forms layer, while the CPython forms compatibility layer marks them unsupported. Do not add a `#! python3` shebang to the four V0.1 button scripts until their UI/file-picker path is replaced or CPython support changes.
 
-The extension contract tests intentionally reject a Python 3 shebang on these commands.
+The extension contract tests intentionally reject a Python 3 shebang on these commands. CI also runs a static IronPython-compatibility proxy across runtime Python sources to reject obvious Python-3-only syntax and selected standard-library/runtime APIs. This is a regression guard, not a substitute for executing the extension under pyRevit IronPython.
 
-## Revit 2026 BuiltInParameter checks
+## Revit 2021.1 / 2026 BuiltInParameter checks
 
-The following parameters used by the adapter are present in the Revit 2026 BuiltInParameter enumeration:
+The adapter parameter set is maintained against current Revit references. Compatibility-critical MEP identifiers including `RBS_PIPE_MATERIAL_PARAM`, `RBS_CTC_SERVICE_TYPE`, `RBS_CABLETRAYCONDUIT_SYSTEM_TYPE`, `RBS_CABLETRAYCONDUITRUN_LENGTH_PARAM`, and `RBS_DUCT_SIZE_FORMATTED_PARAM` were also confirmed in the Revit 2021.1 BuiltInParameter enumeration.
+
+The following parameters are used by the adapter:
 
 ### Project metadata
 
@@ -83,7 +85,7 @@ The adapter exposes one primary `material` value for grouping. It does not yet e
 
 ## References used for the compatibility review
 
-- Autodesk Revit API / RevitAPIDocs 2026 BuiltInParameter enumeration
-- pyRevit extension metadata and forms implementations
+- Autodesk Revit API / RevitAPIDocs 2021.1 and 2026 BuiltInParameter enumerations
+- pyRevit extension metadata and IronPython/CPython forms implementations
 
 Re-check these assumptions when upgrading pyRevit or changing the supported Revit range.

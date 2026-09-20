@@ -1,1 +1,40 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Revit Estimating Snapshot Manifest","type":"object","required":["schema_version","tool","tool_version","status","created_at","project_name","model","element_count","audit_issue_count","evidence_hashes"],"properties":{"status":{"const":"NOT_ESTIMATOR_VALIDATED"},"evidence_hashes":{"type":"object"}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Revit Estimating Snapshot Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tool",
+    "tool_version",
+    "status",
+    "created_at",
+    "project_name",
+    "model",
+    "element_count",
+    "audit_issue_count",
+    "extraction_config",
+    "evidence_hashes"
+  ],
+  "properties": {
+    "status": {"const": "NOT_ESTIMATOR_VALIDATED"},
+    "extraction_config": {
+      "type": "object",
+      "required": ["categories", "read_only"],
+      "properties": {
+        "read_only": {"const": true},
+        "categories": {
+          "type": "object",
+          "required": ["path", "sha256", "schema_version", "category_count", "mode"],
+          "properties": {
+            "path": {"type": "string"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+            "schema_version": {"type": "string"},
+            "category_count": {"type": "integer", "minimum": 1},
+            "mode": {"const": "REQUIRED_FAIL_CLOSED"}
+          }
+        }
+      }
+    },
+    "evidence_hashes": {"type": "object"}
+  }
+}

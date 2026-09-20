@@ -6,6 +6,7 @@ import io
 import json
 import os
 
+from . import SCHEMA_VERSION
 from .validation import finding, validation_passed
 
 EXPECTED_BUTTONS = (
@@ -95,6 +96,8 @@ def run_doctor(repository_root):
         findings.append(finding("CATEGORY_CONFIG_MISSING", "config/categories.json is missing."))
     else:
         data = _read_json(categories_path, "CATEGORY_CONFIG_INVALID", findings)
+        if isinstance(data, dict) and data.get("schema_version") != SCHEMA_VERSION:
+            findings.append(finding("CATEGORY_SCHEMA_VERSION_UNSUPPORTED", "categories.json schema_version does not match the tool schema.", {"actual": data.get("schema_version"), "expected": SCHEMA_VERSION}))
         categories = data.get("categories") if isinstance(data, dict) else None
         if not isinstance(categories, list) or not categories:
             findings.append(finding("CATEGORY_CONFIG_INVALID", "categories.json must contain a non-empty categories list."))
@@ -118,6 +121,9 @@ def run_doctor(repository_root):
                 seen_bics.add(bic)
                 if quantity not in ALLOWED_PRIMARY_QUANTITIES:
                     findings.append(finding("PRIMARY_QUANTITY_INVALID", "Unsupported primary quantity type.", {"name": name, "primary_quantity": quantity}))
+                for flag in ("audit_only", "requires_size", "requires_system"):
+                    if flag in item and not isinstance(item.get(flag), bool):
+                        findings.append(finding("CATEGORY_FLAG_INVALID", "Category boolean flag has a non-boolean value.", {"name": name, "flag": flag, "value": item.get(flag)}))
 
     for path in schemas:
         if not os.path.isfile(path):

@@ -21,6 +21,8 @@ The project deliberately does **not** modify Revit model data, price work, creat
 4. Reload pyRevit.
 5. Open Revit and use the **Estimating** tab.
 
+`config/categories.json` is a governed runtime input, not an optional convenience file. Model Audit and Extract Snapshot fail closed if it is missing, malformed, schema-incompatible, or internally inconsistent. Each snapshot records the config path, schema version, category count, and SHA-256 used for that extraction.
+
 For development setup and validation details see `docs/DEVELOPMENT.md` and `docs/TESTING.md`.
 
 ## Snapshot output

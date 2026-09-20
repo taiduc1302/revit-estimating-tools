@@ -1,6 +1,7 @@
 # Final Offline Audit — V0.1
 
-Audit date: 2026-09-16
+Initial audit date: 2026-09-16
+Follow-up hardening audit: 2026-09-19
 
 ## Status
 
@@ -61,6 +62,16 @@ When both snapshots contain Revit Project Number values and they differ, compari
 
 Model Audit, Extract Snapshot, and Compare Revision now catch top-level failures and show a controlled pyRevit alert rather than exposing a raw traceback as the normal user experience.
 
+### Category configuration was fail-open and repeatedly read during audit
+
+The runtime category loader previously fell back silently to a built-in list when `config/categories.json` was missing or invalid. That could produce plausible quantities from a config different from the one named in the manifest. In addition, `audit_element()` reached `load_category_specs()` through `spec_by_name()` for every element, creating avoidable file I/O on large models.
+
+The loader is now fail-closed, validates schema/duplicates/quantity types/control flags, caches the validated specs for the command, and records config SHA-256/schema/category-count provenance in every extracted snapshot.
+
+### IronPython compatibility needed a stronger offline regression guard
+
+Python 3.8/3.11/3.12 CI does not prove IronPython 2.7 syntax/runtime compatibility. A static runtime-source contract now rejects obvious Python-3-only constructs, annotations/keyword-only arguments, selected Python-3-only stdlib APIs, and builtin `open(..., encoding=...)` usage. Live pyRevit execution remains required.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
@@ -78,7 +89,8 @@ The automated suite covers or statically checks:
 - revision-comparison input/output hashes;
 - collision-safe output folders;
 - project-number mismatch warnings;
-- expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, and read-only transaction contract;
+- expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, read-only transaction contract, and a static IronPython compatibility proxy;
+- fail-closed category configuration loading, caching, and SHA-256 provenance;
 - absence of the removed company-specific project name in governed source/docs/config/tool paths.
 
 The post-audit GitHub Actions matrix passed the offline doctor, dependency-free unit tests, golden CLI revision comparison, and bytecode compilation on Python 3.8, 3.11, and 3.12.

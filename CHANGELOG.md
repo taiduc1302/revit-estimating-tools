@@ -22,6 +22,8 @@ All notable changes to this project will be documented here.
 - Static extension safety contract tests for read-only commands, bundle metadata, engine choice, context, and neutral naming.
 - Revit/pyRevit API compatibility notes and a final offline audit report.
 - HIGH `PROJECT_NUMBER_MISMATCH` warning for suspicious cross-project revision comparisons.
+- SHA-256 provenance for the governed category configuration used by each extraction.
+- Static IronPython-compatibility regression checks for runtime Python sources.
 
 ### Changed
 
@@ -38,6 +40,7 @@ All notable changes to this project will be documented here.
 - MEP extraction includes additional Revit 2026 level, service/system, size, length, volume, and pipe-material fallbacks.
 - Revision comparison output directories are collision-safe and version themselves when timestamps collide.
 - Ribbon commands provide controlled user-facing alerts on top-level failures.
+- Category configuration is required and fail-closed; silent built-in fallback was removed, specs are validated once and cached per command, and config provenance is embedded in snapshots.
 
 ### Validation status
 

@@ -15,6 +15,7 @@ if LIB not in sys.path:
 from revit_estimating.aggregation import aggregate_primary_quantities, quantity_delta
 from revit_estimating.audit import audit_element
 from revit_estimating.diff import compare_snapshots
+from revit_estimating.config import category_config_evidence
 from revit_estimating.fingerprint import similarity_score
 from revit_estimating.hashing import sha256_text
 from revit_estimating.logging_utils import write_run_log
@@ -230,7 +231,7 @@ class PackageTests(unittest.TestCase):
         shutil.rmtree(self.root)
 
     def _build_snapshot(self):
-        manifest = build_manifest("Test", {"host_document": "Model.rvt"}, 1, 0, created_at="2026-09-15T00:00:00Z")
+        manifest = build_manifest("Test", {"host_document": "Model.rvt"}, 1, 0, extraction_config={"categories": category_config_evidence(force_reload=True), "read_only": True}, created_at="2026-09-15T00:00:00Z")
         return write_snapshot_package(self.root, manifest, [element()], [])
 
     def test_snapshot_and_zip(self):
@@ -253,6 +254,23 @@ class PackageTests(unittest.TestCase):
         folder = self._build_snapshot()
         findings = validate_snapshot_folder(folder)
         self.assertTrue(validation_passed(findings), findings)
+
+    def test_snapshot_records_category_config_provenance(self):
+        folder = self._build_snapshot()
+        manifest = read_json(os.path.join(folder, "manifest.json"))
+        categories = manifest.get("extraction_config", {}).get("categories", {})
+        self.assertEqual(categories.get("mode"), "REQUIRED_FAIL_CLOSED")
+        self.assertEqual(len(categories.get("sha256") or ""), 64)
+        self.assertGreater(categories.get("category_count", 0), 0)
+
+    def test_snapshot_validator_requires_category_config_provenance(self):
+        folder = self._build_snapshot()
+        manifest_path = os.path.join(folder, "manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["extraction_config"] = {}
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_snapshot_folder(folder))
+        self.assertIn("CATEGORY_CONFIG_EVIDENCE_MISSING", codes)
 
     def test_run_log_is_hashed_and_tampering_blocks_packaging(self):
         folder = self._build_snapshot()
