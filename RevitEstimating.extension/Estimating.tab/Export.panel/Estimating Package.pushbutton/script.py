@@ -1,15 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-import os
-import sys
-
 from pyrevit import forms, script
-
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
-LIB = os.path.join(ROOT, "lib")
-if LIB not in sys.path:
-    sys.path.insert(0, LIB)
 
 from revit_estimating.package import create_estimating_package
 
