@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB = os.path.join(ROOT, "lib")
@@ -79,6 +80,75 @@ def compare_command(args):
     return 0
 
 
+def _benchmark_element(index, key_prefix="u", length=10.0):
+    uid = "%s-%s" % (key_prefix, index)
+    return {
+        "element_key": "HOST:%s" % uid,
+        "source_scope_key": "HOST",
+        "source_document": "Synthetic.rvt",
+        "unique_id": uid,
+        "category": "Pipes",
+        "family": "Pipe",
+        "type": "PVC 300",
+        "system": "Storm",
+        "material": "PVC",
+        "level": "Level 1",
+        "mark": "",
+        "size": {"diameter_mm": 300.0},
+        "location": {"x_m": float(index), "y_m": 0.0, "z_m": 0.0},
+        "quantities": {"length_m": float(length)},
+        "primary_quantity_type": "LENGTH",
+        "primary_quantity_value": float(length),
+        "primary_quantity_unit": "M",
+        "quantity_aggregation_excluded": False,
+        "parameters": {},
+    }
+
+
+def benchmark_command(args):
+    count = max(1, int(args.elements))
+    replacements = max(0, min(int(args.replacements), count))
+    stable = count - replacements
+    baseline_elements = []
+    current_elements = []
+    for index in range(stable):
+        baseline_elements.append(_benchmark_element(index, "stable", 10.0))
+        current_elements.append(_benchmark_element(index, "stable", 10.0))
+    for index in range(replacements):
+        baseline_elements.append(_benchmark_element(stable + index, "old", 10.0))
+        current_elements.append(_benchmark_element(stable + index, "new", 10.0))
+
+    baseline = {"schema_version": "0.1", "metadata": {"model": {"project_name": "Synthetic"}}, "elements": baseline_elements, "audit_issues": []}
+    current = {"schema_version": "0.1", "metadata": {"model": {"project_name": "Synthetic"}}, "elements": current_elements, "audit_issues": []}
+
+    started = time.time()
+    result = compare_snapshots(baseline, current)
+    elapsed = max(time.time() - started, 0.000001)
+    payload = {
+        "passed": True,
+        "elements_per_snapshot": count,
+        "replacements": replacements,
+        "elapsed_seconds": round(elapsed, 4),
+        "elements_per_second": round((count * 2.0) / elapsed, 2),
+        "summary": result.get("summary") or {},
+        "warnings": result.get("warnings") or [],
+    }
+    max_seconds = args.max_seconds
+    if max_seconds is not None and elapsed > float(max_seconds):
+        payload["passed"] = False
+        payload["error"] = "Benchmark exceeded max seconds: %.4f > %.4f" % (elapsed, float(max_seconds))
+
+    if args.json_output:
+        print_json(payload)
+    else:
+        print("PASS" if payload["passed"] else "FAIL")
+        print("Elements/snapshot=%s replacements=%s elapsed=%.4fs throughput=%.2f elements/s" % (
+            count, replacements, elapsed, payload["elements_per_second"]))
+        for warning in payload["warnings"]:
+            print("WARNING %s: %s" % (warning.get("code"), warning.get("message")))
+    return 0 if payload["passed"] else 1
+
+
 def package_command(args):
     try:
         path = create_estimating_package(args.folder, output_path=args.output)
@@ -122,6 +192,13 @@ def build_parser():
     compare.add_argument("--allow-standalone", action="store_true", help="Allow raw snapshot JSON files that are not part of an intact exported snapshot package. Intended for fixtures/development only.")
     compare.add_argument("--json", action="store_true", dest="json_output")
     compare.set_defaults(handler=compare_command)
+
+    benchmark = commands.add_parser("benchmark", help="Run a synthetic offline revision-comparison benchmark.")
+    benchmark.add_argument("--elements", type=int, default=20000, help="Elements per synthetic snapshot.")
+    benchmark.add_argument("--replacements", type=int, default=600, help="Elements recreated with new identities.")
+    benchmark.add_argument("--max-seconds", type=float, default=None, help="Return failure if runtime exceeds this limit.")
+    benchmark.add_argument("--json", action="store_true", dest="json_output")
+    benchmark.set_defaults(handler=benchmark_command)
 
     package = commands.add_parser("package", help="Create a ZIP from a valid snapshot package.")
     package.add_argument("folder")
