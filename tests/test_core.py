@@ -119,6 +119,17 @@ class AggregationTests(unittest.TestCase):
         self.assertEqual(rows[0]["baseline_source_document"], "Model_A.rvt")
         self.assertEqual(rows[0]["current_source_document"], "Model_B.rvt")
 
+    def test_non_positive_quantities_do_not_reduce_aggregated_totals(self):
+        positive = element(length=10)
+        negative = element(key="HOST:u2", unique_id="u2", length=-4)
+        zero = element(key="HOST:u3", unique_id="u3", length=0)
+        rows = aggregate_primary_quantities([positive, negative, zero])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["quantity"], 10.0)
+        delta_rows = quantity_delta([positive], [positive, negative, zero])
+        self.assertEqual(len(delta_rows), 1)
+        self.assertEqual(delta_rows[0]["delta"], 0.0)
+
 
 class DiffTests(unittest.TestCase):
     def test_modified_exact_identity(self):
