@@ -4,23 +4,10 @@ from __future__ import absolute_import, print_function
 
 import os
 
-from .aggregation import aggregate_primary_quantities
-from .audit import audit_summary
 from .hashing import sha256_file
 from .manifest import next_snapshot_folder
-from .serialization import ensure_dir, write_json, write_csv, read_json
-
-ELEMENT_COLUMNS = [
-    "element_key", "source_scope_key", "source_document", "source_document_identity", "is_linked",
-    "link_instance_name", "link_instance_unique_id", "element_id", "unique_id", "category", "family", "type",
-    "system", "material", "level", "workset", "phase_created", "phase_demolished", "design_option", "mark",
-    "size", "location", "primary_quantity_type", "primary_quantity_value", "primary_quantity_unit",
-    "quantity_aggregation_excluded", "quantities", "parameters", "fingerprints"
-]
-AUDIT_COLUMNS = ["issue_id", "severity", "rule_id", "source_document", "element_key", "element_id", "category", "message", "values"]
-QUANTITY_COLUMNS = ["source_document", "category", "family", "type", "system", "material", "size", "unit", "quantity", "element_count"]
-SUMMARY_COLUMNS = ["metric", "value"]
-
+from .serialization import ensure_dir, write_json, write_text, read_json
+from .evidence import snapshot_csv_texts
 
 def build_raw_snapshot(manifest, elements, audit_issues):
     metadata = dict(manifest)
@@ -31,17 +18,6 @@ def build_raw_snapshot(manifest, elements, audit_issues):
         "elements": sorted(elements, key=lambda x: x.get("element_key", "")),
         "audit_issues": sorted(audit_issues, key=lambda x: x.get("issue_id", "")),
     }
-
-
-def _summary_rows(elements, audit_issues):
-    summary = audit_summary(audit_issues)
-    rows = [
-        {"metric": "element_count", "value": len(elements)},
-        {"metric": "audit_issue_count", "value": len(audit_issues)},
-    ]
-    for severity in ("HIGH", "MEDIUM", "LOW", "INFO"):
-        rows.append({"metric": "audit_%s" % severity.lower(), "value": summary.get(severity, 0)})
-    return rows
 
 
 def write_snapshot_package(output_root, manifest, elements, audit_issues):
@@ -55,10 +31,11 @@ def write_snapshot_package(output_root, manifest, elements, audit_issues):
 
     raw_snapshot = build_raw_snapshot(manifest, elements, audit_issues)
     write_json(raw_path, raw_snapshot)
-    write_csv(elements_path, raw_snapshot["elements"], ELEMENT_COLUMNS)
-    write_csv(quantities_path, aggregate_primary_quantities(elements), QUANTITY_COLUMNS)
-    write_csv(issues_path, audit_issues, AUDIT_COLUMNS)
-    write_csv(summary_path, _summary_rows(elements, audit_issues), SUMMARY_COLUMNS)
+    derived_csv = snapshot_csv_texts(raw_snapshot)
+    write_text(elements_path, derived_csv["elements.csv"])
+    write_text(quantities_path, derived_csv["quantities.csv"])
+    write_text(issues_path, derived_csv["audit_issues.csv"])
+    write_text(summary_path, derived_csv["summary.csv"])
 
     evidence = {}
     for path in (raw_path, elements_path, quantities_path, issues_path, summary_path):
