@@ -7,6 +7,8 @@ from .aggregation import quantity_delta
 from .fingerprint import similarity_score, size_label
 from .utils import nested_get, is_number, to_text, rounded
 
+MAX_RECREATED_CANDIDATE_PAIRS_PER_BUCKET = 250000
+
 COMPARISON_FIELDS = [
     "family", "type", "system", "material", "level", "workset", "phase_created",
     "phase_demolished", "design_option", "mark",
@@ -134,22 +136,39 @@ def _candidate_bucket(element):
     return linked, scope, to_text(element.get("category")).strip().lower()
 
 
-def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10):
-    """Return only reciprocal, unambiguous best matches to avoid greedy false positives."""
+def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10, max_pairs_per_bucket=MAX_RECREATED_CANDIDATE_PAIRS_PER_BUCKET):
+    """Return reciprocal best matches and skip pathological candidate buckets."""
     added_by_bucket = {}
+    removed_by_bucket = {}
     for new in added:
         added_by_bucket.setdefault(_candidate_bucket(new), []).append(new)
+    for old in removed:
+        removed_by_bucket.setdefault(_candidate_bucket(old), []).append(old)
 
+    skipped = []
     old_candidates = {}
     new_candidates = {}
-    for old in removed:
-        old_key = old.get("element_key")
-        for new in added_by_bucket.get(_candidate_bucket(old), []):
-            score = similarity_score(old, new)
-            if score <= 0:
-                continue
-            old_candidates.setdefault(old_key, []).append((score, new))
-            new_candidates.setdefault(new.get("element_key"), []).append((score, old))
+    for bucket in sorted(removed_by_bucket.keys(), key=lambda x: to_text(x)):
+        old_items = removed_by_bucket.get(bucket) or []
+        new_items = added_by_bucket.get(bucket) or []
+        pair_count = len(old_items) * len(new_items)
+        if pair_count > max_pairs_per_bucket:
+            skipped.append({
+                "bucket": [bucket[0], bucket[1], bucket[2]],
+                "removed_count": len(old_items),
+                "added_count": len(new_items),
+                "candidate_pairs": pair_count,
+                "limit": max_pairs_per_bucket,
+            })
+            continue
+        for old in old_items:
+            old_key = old.get("element_key")
+            for new in new_items:
+                score = similarity_score(old, new)
+                if score <= 0:
+                    continue
+                old_candidates.setdefault(old_key, []).append((score, new))
+                new_candidates.setdefault(new.get("element_key"), []).append((score, old))
 
     best_for_old = {}
     for old in removed:
@@ -174,8 +193,7 @@ def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10):
         if new_best is None or new_best[1].get("element_key") != old_key:
             continue
         pairs.append({"baseline": old, "current": new, "confidence": rounded(score, 4)})
-    return pairs
-
+    return pairs, skipped
 
 def compare_snapshots(baseline_snapshot, current_snapshot):
     """Compare two compatible snapshots and fail closed on identity/schema defects."""
@@ -203,7 +221,7 @@ def compare_snapshots(baseline_snapshot, current_snapshot):
 
     removed = [baseline[key] for key in removed_keys]
     added = [current[key] for key in added_keys]
-    recreated_pairs = _infer_recreated(removed, added)
+    recreated_pairs, skipped_recreated_buckets = _infer_recreated(removed, added)
     recreated_old = set(pair["baseline"].get("element_key") for pair in recreated_pairs)
     recreated_new = set(pair["current"].get("element_key") for pair in recreated_pairs)
 
@@ -237,10 +255,19 @@ def compare_snapshots(baseline_snapshot, current_snapshot):
         "POSSIBLE_RECREATED": len(possible_recreated), "UNCHANGED": unchanged_count,
         "BASELINE_ELEMENTS": len(baseline_elements), "CURRENT_ELEMENTS": len(current_elements),
     }
+    warnings = _comparison_warnings(baseline_snapshot, current_snapshot)
+    for skipped in skipped_recreated_buckets:
+        warnings.append({
+            "code": "RECREATED_MATCH_SKIPPED_LARGE_BUCKET",
+            "severity": "MEDIUM",
+            "message": "Inferred recreated-element matching was skipped for a large candidate bucket to avoid excessive quadratic work. Elements remain reported as added/removed for estimator review.",
+            "values": skipped,
+        })
+
     return {
         "schema_version": SCHEMA_VERSION,
         "summary": summary,
-        "warnings": _comparison_warnings(baseline_snapshot, current_snapshot),
+        "warnings": warnings,
         "added": final_added,
         "removed": final_removed,
         "modified": modified,
