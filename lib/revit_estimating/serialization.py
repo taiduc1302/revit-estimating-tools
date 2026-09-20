@@ -37,9 +37,13 @@ def write_json(path, data, pretty=True):
     write_text(path, canonical_json(data, pretty=pretty))
 
 
-def read_json(path):
+def read_text(path):
     with io.open(path, "r", encoding="utf-8-sig") as stream:
-        return json.loads(stream.read())
+        return stream.read()
+
+
+def read_json(path):
+    return json.loads(read_text(path))
 
 
 def _spreadsheet_safe_text(text):
@@ -63,8 +67,12 @@ def _csv_cell(value):
     return text
 
 
-def write_csv(path, rows, columns):
+def csv_text(rows, columns):
     lines = [u",".join([_csv_cell(column) for column in columns])]
     for row in rows:
         lines.append(u",".join([_csv_cell(row.get(column)) for column in columns]))
-    write_text(path, u"\n".join(lines) + u"\n")
+    return u"\n".join(lines) + u"\n"
+
+
+def write_csv(path, rows, columns):
+    write_text(path, csv_text(rows, columns))
