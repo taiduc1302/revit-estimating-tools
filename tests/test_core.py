@@ -361,6 +361,14 @@ class PackageTests(unittest.TestCase):
         findings = validate_snapshot_folder(folder)
         self.assertIn("HASH_MISMATCH", set(item["code"] for item in findings))
 
+    def test_package_output_cannot_overwrite_snapshot_evidence(self):
+        folder = self._build_snapshot()
+        manifest_path = os.path.join(folder, "manifest.json")
+        with self.assertRaises(ValueError):
+            create_estimating_package(folder, output_path=manifest_path)
+        saved = read_json(manifest_path)
+        self.assertEqual(saved["status"], "NOT_ESTIMATOR_VALIDATED")
+
     def test_snapshot_validator_detects_duplicate_identity(self):
         folder = self._build_snapshot()
         path = os.path.join(folder, "raw_snapshot.json")
