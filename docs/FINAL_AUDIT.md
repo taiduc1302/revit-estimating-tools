@@ -108,6 +108,14 @@ If one element cannot be extracted, the resulting snapshot can be quantity-incom
 
 The offline `package --output` path previously accepted any filename, including `manifest.json` or another evidence file inside the source snapshot folder. Packaging now rejects output paths that collide with required or optional snapshot evidence before opening the ZIP for writing.
 
+### Derived CSV evidence could drift while hashes were recomputed
+
+SHA-256 checks alone could not distinguish a legitimate regenerated CSV from a modified CSV whose manifest hash had also been updated. Snapshot validation now deterministically regenerates all four CSV review surfaces from authoritative `raw_snapshot.json` and requires byte-equivalent text. Revision-comparison validation does the same for its two CSV outputs from `revision_diff.json`. When recorded baseline/current snapshots remain available, the validator also recomputes the entire revision result and compares it to `revision_diff.json`.
+
+### Wrong-project protection needed a fallback when Project Number is blank
+
+A blank Revit Project Number is common enough that number-only mismatch detection was insufficient. Comparison now falls back to populated Revit Project Name values: differing names are HIGH when a shared populated project number is unavailable, and MEDIUM when both snapshots share the same project number.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
