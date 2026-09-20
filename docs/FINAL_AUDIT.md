@@ -116,6 +116,14 @@ SHA-256 checks alone could not distinguish a legitimate regenerated CSV from a m
 
 A blank Revit Project Number is common enough that number-only mismatch detection was insufficient. Comparison now falls back to populated Revit Project Name values: differing names are HIGH when a shared populated project number is unavailable, and MEDIUM when both snapshots share the same project number.
 
+### Linked coordinates could be mislabeled when transform resolution failed
+
+If a linked model transform was missing, or a resolved transform failed during `OfPoint()`, retaining the original point would make link-local coordinates look like host coordinates. Linked elements now publish `location: null` unless the host transform is available and applies successfully. Link scope fallback also prefers Revit link instance ElementId before link name when UniqueId is unavailable, reducing collisions between same-named instances.
+
+### JSON parsing needed to be strict as well as JSON writing
+
+The serializer already stopped emitting non-finite numbers, but Python's default JSON parser can accept `NaN`/`Infinity`. `read_json()` now rejects those constants so imported snapshot/comparison evidence follows the same strict numeric contract in both directions. Validator recomputation failures are reported as findings instead of escaping as raw exceptions when evidence structure is malformed.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
