@@ -33,18 +33,27 @@ def _read_json(path, code, findings):
     return data
 
 
-def run_doctor(repository_root):
-    """Validate repository structure/configuration without importing pyRevit or Autodesk APIs."""
+def _resolve_target(target):
+    absolute = os.path.abspath(target)
+    if os.path.isdir(absolute) and os.path.isfile(os.path.join(absolute, "extension.json")):
+        return None, absolute
+    return absolute, os.path.join(absolute, "RevitEstimating.extension")
+
+
+def run_doctor(target):
+    """Validate a repository checkout or standalone .extension folder without Revit."""
     findings = []
-    root = os.path.abspath(repository_root)
-    extension = os.path.join(root, "RevitEstimating.extension")
+    repository_root, extension = _resolve_target(target)
+    root = repository_root or os.path.dirname(extension)
     manifest_path = os.path.join(extension, "extension.json")
     runtime_lib = os.path.join(extension, "lib", "revit_estimating")
     categories_path = os.path.join(extension, "config", "categories.json")
-    schemas = (
-        os.path.join(root, "schemas", "manifest.schema.json"),
-        os.path.join(root, "schemas", "snapshot.schema.json"),
-    )
+    schemas = ()
+    if repository_root is not None:
+        schemas = (
+            os.path.join(repository_root, "schemas", "manifest.schema.json"),
+            os.path.join(repository_root, "schemas", "snapshot.schema.json"),
+        )
 
     if not os.path.isdir(extension):
         findings.append(finding("EXTENSION_FOLDER_MISSING", "RevitEstimating.extension folder is missing."))
@@ -52,8 +61,9 @@ def run_doctor(repository_root):
 
     if not os.path.isfile(os.path.join(runtime_lib, "__init__.py")):
         findings.append(finding("EXTENSION_RUNTIME_MISSING", "Self-contained extension runtime lib/revit_estimating is missing."))
-    if os.path.isdir(os.path.join(root, "lib", "revit_estimating")) or os.path.isfile(os.path.join(root, "config", "categories.json")):
-        findings.append(finding("LEGACY_RUNTIME_DUPLICATE", "Legacy repository-level runtime/config duplicates must not exist; the extension is the single runtime source of truth."))
+    if repository_root is not None:
+        if os.path.isdir(os.path.join(repository_root, "lib", "revit_estimating")) or os.path.isfile(os.path.join(repository_root, "config", "categories.json")):
+            findings.append(finding("LEGACY_RUNTIME_DUPLICATE", "Legacy repository-level runtime/config duplicates must not exist; the extension is the single runtime source of truth."))
 
     if not os.path.isfile(manifest_path):
         findings.append(finding("EXTENSION_MANIFEST_MISSING", "extension.json is missing."))
@@ -135,7 +145,7 @@ def run_doctor(repository_root):
 
     for path in schemas:
         if not os.path.isfile(path):
-            findings.append(finding("SCHEMA_FILE_MISSING", "Required schema file is missing.", {"path": os.path.relpath(path, root)}))
+            findings.append(finding("SCHEMA_FILE_MISSING", "Required schema file is missing.", {"path": os.path.relpath(path, repository_root or root)}))
         else:
             data = _read_json(path, "SCHEMA_JSON_INVALID", findings)
             if data is not None and not isinstance(data, dict):
