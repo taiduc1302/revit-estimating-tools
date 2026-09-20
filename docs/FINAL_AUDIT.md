@@ -124,6 +124,10 @@ If a linked model transform was missing, or a resolved transform failed during `
 
 The serializer already stopped emitting non-finite numbers, but Python's default JSON parser can accept `NaN`/`Infinity`. `read_json()` now rejects those constants so imported snapshot/comparison evidence follows the same strict numeric contract in both directions. Validator recomputation failures are reported as findings instead of escaping as raw exceptions when evidence structure is malformed.
 
+### Category configuration provenance stored only a digest
+
+The snapshot recorded the SHA-256 and metadata of `config/categories.json`, but not the exact rules file itself. A historical package could therefore prove that a particular digest was declared without preserving the configuration needed to reproduce or inspect the extraction rules. Snapshots now embed `categories_config.json`; validation cross-checks its evidence hash, provenance SHA-256, schema version, and category count.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
