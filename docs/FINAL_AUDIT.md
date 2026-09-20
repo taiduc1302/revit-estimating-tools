@@ -104,6 +104,10 @@ Canonical JSON serialization now rejects `NaN` and `Infinity` rather than emitti
 
 If one element cannot be extracted, the resulting snapshot can be quantity-incomplete. `ELEMENT_EXTRACTION_FAILED` is now HIGH severity rather than MEDIUM.
 
+### CLI package output could overwrite source evidence
+
+The offline `package --output` path previously accepted any filename, including `manifest.json` or another evidence file inside the source snapshot folder. Packaging now rejects output paths that collide with required or optional snapshot evidence before opening the ZIP for writing.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
