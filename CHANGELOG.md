@@ -57,6 +57,7 @@ All notable changes to this project will be documented here.
 - Offline synthetic comparison benchmarking is available and exercised in CI to guard against performance regressions.
 - Ribbon commands now rely on pyRevit's native extension-local `lib/` path; repository-level runtime/config copies and manual `sys.path` injection were removed.
 - `doctor` can validate either the full repository or a standalone copied `.extension` folder, and CI verifies deterministic extension packaging.
+- Deployment doctor rejects malformed `.extension` paths/double nesting, and the self-contained package now carries a license notice verified against the repository license.
 - Snapshot CSV review evidence is recomputed from `raw_snapshot.json` during validation, and comparison CSVs are recomputed from `revision_diff.json`.
 - When recorded comparison inputs are available, `revision_diff.json` is recomputed from baseline/current snapshots and must match.
 - Project-name mismatch warnings provide a wrong-project fallback when Revit Project Number is blank or unavailable.
