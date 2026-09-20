@@ -108,6 +108,48 @@ def _validate_optional_hashes(folder, names, expected, findings):
                 findings.append(finding("HASH_MISMATCH", "Evidence hash does not match manifest.", {"file": name, "declared": declared, "actual": actual}))
 
 
+def snapshot_input_package_status(path):
+    absolute = os.path.abspath(path)
+    if not os.path.isfile(absolute):
+        return "FILE_NOT_FOUND"
+    folder = os.path.dirname(absolute)
+    expected_raw = os.path.join(folder, "raw_snapshot.json")
+    if os.path.normcase(absolute) != os.path.normcase(expected_raw):
+        return "STANDALONE_UNVERIFIED"
+
+    sibling_names = [name for name in REQUIRED_FILES if name != "raw_snapshot.json"]
+    if not any(os.path.exists(os.path.join(folder, name)) for name in sibling_names):
+        return "STANDALONE_UNVERIFIED"
+    return "VALID_PACKAGE" if validation_passed(validate_snapshot_folder(folder)) else "INVALID_PACKAGE"
+
+
+def validate_snapshot_input_file(path, allow_standalone=False):
+    absolute = os.path.abspath(path)
+    if not os.path.isfile(absolute):
+        return [finding("SNAPSHOT_INPUT_MISSING", "Snapshot input file does not exist.", {"path": absolute})]
+
+    status = snapshot_input_package_status(absolute)
+    if status == "VALID_PACKAGE":
+        return []
+    if status == "INVALID_PACKAGE":
+        return validate_snapshot_folder(os.path.dirname(absolute))
+    if allow_standalone:
+        return []
+    return [finding(
+        "SNAPSHOT_PACKAGE_REQUIRED",
+        "Snapshot comparison requires raw_snapshot.json from an intact validated snapshot package.",
+        {"path": absolute, "status": status},
+    )]
+
+
+def require_valid_snapshot_input(path, label="Snapshot", allow_standalone=False):
+    findings = validate_snapshot_input_file(path, allow_standalone=allow_standalone)
+    if findings:
+        codes = ", ".join(sorted(set(item.get("code", "SNAPSHOT_INPUT_INVALID") for item in findings)))
+        raise ValueError("%s input failed snapshot package validation: %s" % (label, codes))
+    return True
+
+
 def validate_snapshot_folder(folder):
     findings = []
     if not os.path.isdir(folder):
@@ -194,6 +236,18 @@ def _validate_input_snapshot_evidence(item, label, findings):
     actual = sha256_file(path)
     if not declared or declared != actual:
         findings.append(finding("COMPARISON_INPUT_HASH_MISMATCH", "%s snapshot no longer matches the comparison manifest." % label, {"path": path, "declared": declared, "actual": actual}))
+
+    package_status = to_text(item.get("package_status")).strip()
+    if package_status not in ("VALID_PACKAGE", "STANDALONE_UNVERIFIED"):
+        findings.append(finding("COMPARISON_INPUT_PACKAGE_STATUS_INVALID", "%s snapshot package status is invalid." % label, {"status": package_status}))
+    elif package_status == "VALID_PACKAGE":
+        package_findings = validate_snapshot_folder(os.path.dirname(path))
+        if package_findings:
+            findings.append(finding(
+                "COMPARISON_INPUT_PACKAGE_INVALID",
+                "%s source snapshot package no longer passes integrity validation." % label,
+                {"codes": sorted(set(entry.get("code") for entry in package_findings))},
+            ))
 
 
 def validate_comparison_folder(folder, verify_inputs=True):

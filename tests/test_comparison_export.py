@@ -46,6 +46,8 @@ class ComparisonExportTests(unittest.TestCase):
         self.assertEqual(manifest["current_snapshot"]["sha256"], sha256_file(self.current_path))
         self.assertEqual(manifest["baseline_snapshot"]["status"], "HASHED")
         self.assertEqual(manifest["current_snapshot"]["status"], "HASHED")
+        self.assertEqual(manifest["baseline_snapshot"]["package_status"], "STANDALONE_UNVERIFIED")
+        self.assertEqual(manifest["current_snapshot"]["package_status"], "STANDALONE_UNVERIFIED")
         for name in ("revision_diff.json", "quantity_deltas.csv", "element_changes.csv"):
             self.assertEqual(manifest["evidence_hashes"][name], sha256_file(os.path.join(folder, name)))
 

@@ -25,12 +25,12 @@ Expected summary: 1 added, 1 removed, 1 modified, 0 possible-recreated, 1 unchan
 ## Offline commands
 
 ```bash
-python tools/revit_estimating.py compare tests/fixtures/baseline_snapshot.json tests/fixtures/current_snapshot.json --output .ci-output
+python tools/revit_estimating.py compare tests/fixtures/baseline_snapshot.json tests/fixtures/current_snapshot.json --output .ci-output --allow-standalone
 python tools/revit_estimating.py validate <snapshot-folder>
 python tools/revit_estimating.py package <snapshot-folder>
 ```
 
-Comparison must fail on unsupported/missing schema versions and duplicate element keys. Packaging must fail if snapshot integrity validation reports any finding.
+Comparison must fail on unsupported/missing schema versions, duplicate element keys, and invalid/orphaned snapshot packages. The golden JSON fixtures are intentionally standalone, so their CLI regression command uses the explicit `--allow-standalone` development override. Packaging must fail if snapshot integrity validation reports any finding.
 
 ## Live Revit validation checklist
 

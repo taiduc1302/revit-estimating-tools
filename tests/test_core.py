@@ -24,7 +24,7 @@ from revit_estimating.package import create_estimating_package
 from revit_estimating.serialization import canonical_json, read_json, write_json
 from revit_estimating.snapshot import write_snapshot_package
 from revit_estimating.manifest import build_manifest
-from revit_estimating.validation import validate_snapshot_folder, validation_passed
+from revit_estimating.validation import validate_snapshot_folder, validate_snapshot_input_file, validation_passed
 
 
 def element(key="HOST:u1", unique_id="u1", length=10.0, material="PVC", mark="P-1", location=None,
@@ -284,6 +284,23 @@ class PackageTests(unittest.TestCase):
         self.assertIn("HASH_MISMATCH", set(item["code"] for item in findings))
         with self.assertRaises(ValueError):
             create_estimating_package(folder)
+
+    def test_snapshot_input_requires_intact_package(self):
+        folder = self._build_snapshot()
+        raw_path = os.path.join(folder, "raw_snapshot.json")
+        self.assertTrue(validation_passed(validate_snapshot_input_file(raw_path)))
+        standalone = os.path.join(ROOT, "tests", "fixtures", "baseline_snapshot.json")
+        strict_codes = set(item["code"] for item in validate_snapshot_input_file(standalone))
+        self.assertIn("SNAPSHOT_PACKAGE_REQUIRED", strict_codes)
+        self.assertTrue(validation_passed(validate_snapshot_input_file(standalone, allow_standalone=True)))
+
+    def test_snapshot_input_rejects_tampered_package(self):
+        folder = self._build_snapshot()
+        raw_path = os.path.join(folder, "raw_snapshot.json")
+        with open(raw_path, "a") as stream:
+            stream.write("tampered\n")
+        codes = set(item["code"] for item in validate_snapshot_input_file(raw_path))
+        self.assertTrue("HASH_MISMATCH" in codes or "SNAPSHOT_INVALID" in codes)
 
     def test_snapshot_validator_detects_tampering(self):
         folder = self._build_snapshot()

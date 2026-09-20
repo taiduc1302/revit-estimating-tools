@@ -28,7 +28,7 @@ All notable changes to this project will be documented here.
 ### Changed
 
 - Host element identity no longer depends on RVT filename/path, so normal Save As operations do not redefine the entire model.
-- Revision comparison now fails closed on unsupported/missing schema versions, duplicate element identities, and malformed element collections.
+- Revision comparison now fails closed on unsupported/missing schema versions, duplicate element identities, malformed element collections, and invalid/orphaned snapshot packages; standalone inputs require an explicit CLI development override.
 - Revision comparison now detects representative-location and selected estimating-parameter changes.
 - Physical numeric size is authoritative over formatted size text to avoid false changes caused by display-unit formatting.
 - Audit-only categories remain reviewable evidence but are excluded from aggregated quantities and quantity deltas.

@@ -14,6 +14,7 @@ if LIB not in sys.path:
 from revit_estimating.comparison_export import write_revision_comparison
 from revit_estimating.diff import compare_snapshots
 from revit_estimating.snapshot import load_raw_snapshot
+from revit_estimating.validation import require_valid_snapshot_input
 
 output = script.get_output()
 output.close_others()
@@ -29,6 +30,8 @@ if not output_root:
     script.exit()
 
 try:
+    require_valid_snapshot_input(baseline_path, label="Baseline")
+    require_valid_snapshot_input(current_path, label="Current")
     baseline = load_raw_snapshot(baseline_path)
     current = load_raw_snapshot(current_path)
     result = compare_snapshots(baseline, current)

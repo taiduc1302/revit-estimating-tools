@@ -15,7 +15,7 @@ from revit_estimating.diff import compare_snapshots
 from revit_estimating.doctor import run_doctor
 from revit_estimating.package import create_estimating_package
 from revit_estimating.snapshot import load_raw_snapshot
-from revit_estimating.validation import validate_snapshot_folder, validate_comparison_folder, validation_passed
+from revit_estimating.validation import validate_snapshot_folder, validate_comparison_folder, validation_passed, require_valid_snapshot_input
 
 
 def print_json(payload):
@@ -50,6 +50,8 @@ def validate_comparison_command(args):
 
 def compare_command(args):
     try:
+        require_valid_snapshot_input(args.baseline, label="Baseline", allow_standalone=args.allow_standalone)
+        require_valid_snapshot_input(args.current, label="Current", allow_standalone=args.allow_standalone)
         baseline = load_raw_snapshot(args.baseline)
         current = load_raw_snapshot(args.current)
         result = compare_snapshots(baseline, current)
@@ -117,6 +119,7 @@ def build_parser():
     compare.add_argument("baseline")
     compare.add_argument("current")
     compare.add_argument("--output")
+    compare.add_argument("--allow-standalone", action="store_true", help="Allow raw snapshot JSON files that are not part of an intact exported snapshot package. Intended for fixtures/development only.")
     compare.add_argument("--json", action="store_true", dest="json_output")
     compare.set_defaults(handler=compare_command)
 

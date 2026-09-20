@@ -72,6 +72,10 @@ The loader is now fail-closed, validates schema/duplicates/quantity types/contro
 
 Python 3.8/3.11/3.12 CI does not prove IronPython 2.7 syntax/runtime compatibility. A static runtime-source contract now rejects obvious Python-3-only constructs, annotations/keyword-only arguments, selected Python-3-only stdlib APIs, and builtin `open(..., encoding=...)` usage. Live pyRevit execution remains required.
 
+### Revision comparison trusted orphaned raw snapshots
+
+Compare Revision previously validated snapshot schema/identity but did not require the selected raw JSON to still belong to an intact exported snapshot package. A modified or orphaned `raw_snapshot.json` could therefore be hashed as a new comparison input without first proving it still matched its snapshot manifest. pyRevit and the CLI now require intact validated snapshot packages by default. Standalone raw JSON is available only through the explicit CLI `--allow-standalone` development/fixture override and is labelled `STANDALONE_UNVERIFIED` in comparison evidence.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
@@ -86,7 +90,7 @@ The automated suite covers or statically checks:
 - movement and Assembly Code revision detection;
 - snapshot hash tampering;
 - run-log hash tampering;
-- revision-comparison input/output hashes;
+- revision-comparison input/output hashes and source-package integrity enforcement;
 - collision-safe output folders;
 - project-number mismatch warnings;
 - expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, read-only transaction contract, and a static IronPython compatibility proxy;

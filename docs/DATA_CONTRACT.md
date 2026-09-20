@@ -36,6 +36,12 @@ This design prevents a simple `Save As` or filename change from turning an other
 - `M3` — cubic metres
 - `EA` — count / each
 
+## Revision input trust
+
+The pyRevit Compare Revision command requires both inputs to be `raw_snapshot.json` files inside intact snapshot packages that pass `validate_snapshot_folder()`. A tampered, partial, moved-alone, or orphaned raw snapshot is rejected before comparison. The offline CLI uses the same default; `--allow-standalone` exists only for fixtures/development and is recorded in comparison evidence as `STANDALONE_UNVERIFIED`.
+
+Comparison manifests record both the SHA-256 of each raw input and its `package_status`. When a source was recorded as `VALID_PACKAGE`, later comparison validation also re-checks that source package if the original input files are still available.
+
 ## Revision statuses
 
 - `ADDED`

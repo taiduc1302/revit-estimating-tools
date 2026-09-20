@@ -6,6 +6,7 @@ import os
 
 from . import SCHEMA_VERSION, __version__
 from .hashing import sha256_file
+from .validation import snapshot_input_package_status
 from .serialization import ensure_dir, write_json, write_csv
 from .diff import flattened_change_rows
 
@@ -25,8 +26,8 @@ def _input_evidence(path):
         return None
     absolute = os.path.abspath(path)
     if not os.path.isfile(absolute):
-        return {"path": absolute, "sha256": None, "status": "FILE_NOT_FOUND"}
-    return {"path": absolute, "sha256": sha256_file(absolute), "status": "HASHED"}
+        return {"path": absolute, "sha256": None, "status": "FILE_NOT_FOUND", "package_status": "FILE_NOT_FOUND"}
+    return {"path": absolute, "sha256": sha256_file(absolute), "status": "HASHED", "package_status": snapshot_input_package_status(absolute)}
 
 
 def _comparison_folder(output_root, stamp):
