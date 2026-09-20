@@ -13,7 +13,7 @@ if LIB not in sys.path:
     sys.path.insert(0, LIB)
 
 from revit_estimating.aggregation import aggregate_primary_quantities, quantity_delta
-from revit_estimating.audit import audit_element
+from revit_estimating.audit import audit_element, audit_model
 from revit_estimating.diff import compare_snapshots
 from revit_estimating.config import category_config_evidence
 from revit_estimating.fingerprint import similarity_score
@@ -65,6 +65,14 @@ class NormalizationTests(unittest.TestCase):
 
 
 class AuditTests(unittest.TestCase):
+    def test_link_issue_ids_include_trace_values(self):
+        issues = audit_model([], [
+            {"rule_id": "LINK_UNLOADED", "severity": "HIGH", "source_document": "Host.rvt", "message": "Link unavailable", "values": {"link_instance_id": 10}},
+            {"rule_id": "LINK_UNLOADED", "severity": "HIGH", "source_document": "Host.rvt", "message": "Link unavailable", "values": {"link_instance_id": 20}},
+        ])
+        self.assertEqual(len(issues), 2)
+        self.assertNotEqual(issues[0]["issue_id"], issues[1]["issue_id"])
+
     def test_missing_pipe_data_is_flagged(self):
         row = element()
         row["material"] = None
@@ -232,6 +240,10 @@ class SerializationTests(unittest.TestCase):
 
     def test_hash_stable(self):
         self.assertEqual(sha256_text("abc"), sha256_text("abc"))
+
+    def test_canonical_json_rejects_non_finite_numbers(self):
+        with self.assertRaises(ValueError):
+            canonical_json({"value": float("nan")})
 
     def test_csv_escapes_formula_like_text_but_preserves_numeric_values(self):
         root = tempfile.mkdtemp()
