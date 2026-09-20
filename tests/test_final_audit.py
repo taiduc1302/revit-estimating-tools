@@ -81,6 +81,21 @@ class FinalAuditTests(unittest.TestCase):
             source = stream.read()
         self.assertIn('"rule_id": "ELEMENT_EXTRACTION_FAILED", "severity": "HIGH"', source)
 
+    def test_linked_location_fails_closed_without_transform(self):
+        path = os.path.join(LIB, "revit_estimating", "revit_adapter.py")
+        with open(path, "r") as stream:
+            source = stream.read()
+        self.assertIn('"location": None if context.get("is_linked") and context.get("transform") is None', source)
+        self.assertIn("except Exception:\n            return None\n    return {\"x_m\"", source)
+
+    def test_link_scope_fallback_uses_instance_id_before_name(self):
+        path = os.path.join(LIB, "revit_estimating", "revit_adapter.py")
+        with open(path, "r") as stream:
+            source = stream.read()
+        id_pos = source.index('return "LINK:ID:%s"')
+        name_pos = source.index('return "LINK:NAME:%s"')
+        self.assertLess(id_pos, name_pos)
+
 
 if __name__ == "__main__":
     unittest.main()
