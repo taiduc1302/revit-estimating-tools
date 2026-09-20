@@ -42,8 +42,12 @@ def read_text(path):
         return stream.read()
 
 
+def _reject_non_finite_json(value):
+    raise ValueError("Non-finite JSON number is not allowed: %s" % value)
+
+
 def read_json(path):
-    return json.loads(read_text(path))
+    return json.loads(read_text(path), parse_constant=_reject_non_finite_json)
 
 
 def _spreadsheet_safe_text(text):
@@ -57,7 +61,7 @@ def _spreadsheet_safe_text(text):
 def _csv_cell(value):
     is_text_value = isinstance(value, (text_type, binary_type))
     if isinstance(value, (dict, list, tuple)):
-        value = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        value = json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":"))
         is_text_value = False
     text = to_text(value)
     if is_text_value:
