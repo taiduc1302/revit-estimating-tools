@@ -26,5 +26,7 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Run golden CLI revision comparison
         run: python tools/revit_estimating.py compare tests/fixtures/baseline_snapshot.json tests/fixtures/current_snapshot.json --output .ci-output --allow-standalone --json
+      - name: Run synthetic comparison benchmark
+        run: python tools/revit_estimating.py benchmark --elements 10000 --replacements 600 --max-seconds 30 --json
       - name: Compile dependency-free core and tools
         run: python -m compileall -q lib tests tools
