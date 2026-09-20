@@ -98,6 +98,41 @@ class InstallabilityTests(unittest.TestCase):
         self.assertIn(prefix + "config/categories.json", names)
         self.assertFalse(any("__pycache__" in name or name.endswith((".pyc", ".pyo")) for name in names))
 
+    def test_built_zip_extracts_to_valid_standalone_extension(self):
+        package = os.path.join(self.root, "extension.zip")
+        raw = subprocess.check_output([
+            sys.executable, CLI, "build-extension", "--output", package, "--json"
+        ], cwd=ROOT)
+        payload = json.loads(raw.decode("utf-8"))
+        self.assertTrue(payload.get("passed"), payload)
+
+        extracted_root = os.path.join(self.root, "extracted")
+        os.makedirs(extracted_root)
+        with zipfile.ZipFile(package, "r") as archive:
+            archive.extractall(extracted_root)
+
+        extension = os.path.join(extracted_root, "RevitEstimating.extension")
+        findings = run_doctor(extension)
+        self.assertTrue(validation_passed(findings), findings)
+
+        copied_lib = os.path.join(extension, "lib")
+        smoke = (
+            "import sys; "
+            "sys.path.insert(0, %r); "
+            "from revit_estimating import SCHEMA_VERSION; "
+            "from revit_estimating.config import load_category_specs, category_config_path; "
+            "from revit_estimating.diff import compare_snapshots; "
+            "from revit_estimating.validation import validation_passed; "
+            "assert SCHEMA_VERSION == '0.1'; "
+            "assert len(load_category_specs(force_reload=True)) > 0; "
+            "assert category_config_path().startswith(%r); "
+            "assert callable(compare_snapshots); "
+            "assert callable(validation_passed); "
+            "print('ok')"
+        ) % (copied_lib, extension)
+        output = subprocess.check_output([sys.executable, "-c", smoke], cwd=extracted_root)
+        self.assertEqual(output.strip(), b"ok")
+
 
 if __name__ == "__main__":
     unittest.main()
