@@ -7,12 +7,13 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXTENSION = os.path.join(ROOT, "RevitEstimating.extension")
 
-BUTTON_DIRS = [
-    os.path.join(EXTENSION, "Estimating.tab", "Model.panel", "Model Audit.pushbutton"),
-    os.path.join(EXTENSION, "Estimating.tab", "Model.panel", "Extract Snapshot.pushbutton"),
-    os.path.join(EXTENSION, "Estimating.tab", "Changes.panel", "Compare Revision.pushbutton"),
-    os.path.join(EXTENSION, "Estimating.tab", "Export.panel", "Estimating Package.pushbutton"),
+EXPECTED_BUTTONS = [
+    os.path.join("Estimating.tab", "Model.panel", "Model Audit.pushbutton"),
+    os.path.join("Estimating.tab", "Model.panel", "Extract Snapshot.pushbutton"),
+    os.path.join("Estimating.tab", "Changes.panel", "Compare Revision.pushbutton"),
+    os.path.join("Estimating.tab", "Export.panel", "Estimating Package.pushbutton"),
 ]
+BUTTON_DIRS = [os.path.join(EXTENSION, relative) for relative in EXPECTED_BUTTONS]
 MODEL_BUTTON_DIRS = BUTTON_DIRS[:2]
 FILE_BUTTON_DIRS = BUTTON_DIRS[2:]
 BUTTON_SCRIPTS = [os.path.join(path, "script.py") for path in BUTTON_DIRS]
