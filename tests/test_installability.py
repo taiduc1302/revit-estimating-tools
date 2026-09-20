@@ -96,6 +96,7 @@ class InstallabilityTests(unittest.TestCase):
         self.assertIn(prefix + "LICENSE", names)
         self.assertIn(prefix + "lib/revit_estimating/__init__.py", names)
         self.assertIn(prefix + "config/categories.json", names)
+        self.assertIn(prefix + "deployment_manifest.json", names)
         self.assertFalse(any("__pycache__" in name or name.endswith((".pyc", ".pyo")) for name in names))
 
     def test_built_zip_extracts_to_valid_standalone_extension(self):
@@ -132,6 +133,39 @@ class InstallabilityTests(unittest.TestCase):
         ) % (copied_lib, extension)
         output = subprocess.check_output([sys.executable, "-c", smoke], cwd=extracted_root)
         self.assertEqual(output.strip(), b"ok")
+
+    def test_extracted_deployment_manifest_detects_runtime_tampering(self):
+        package = os.path.join(self.root, "extension.zip")
+        subprocess.check_output([
+            sys.executable, CLI, "build-extension", "--output", package, "--json"
+        ], cwd=ROOT)
+        extracted_root = os.path.join(self.root, "tampered")
+        os.makedirs(extracted_root)
+        with zipfile.ZipFile(package, "r") as archive:
+            archive.extractall(extracted_root)
+
+        extension = os.path.join(extracted_root, "RevitEstimating.extension")
+        target = os.path.join(extension, "config", "categories.json")
+        with open(target, "a") as stream:
+            stream.write("\n")
+        codes = set(item.get("code") for item in run_doctor(extension))
+        self.assertIn("DEPLOYMENT_FILE_HASH_MISMATCH", codes)
+
+    def test_extracted_deployment_manifest_detects_undeclared_file(self):
+        package = os.path.join(self.root, "extension.zip")
+        subprocess.check_output([
+            sys.executable, CLI, "build-extension", "--output", package, "--json"
+        ], cwd=ROOT)
+        extracted_root = os.path.join(self.root, "extra")
+        os.makedirs(extracted_root)
+        with zipfile.ZipFile(package, "r") as archive:
+            archive.extractall(extracted_root)
+
+        extension = os.path.join(extracted_root, "RevitEstimating.extension")
+        with open(os.path.join(extension, "unexpected.txt"), "w") as stream:
+            stream.write("unexpected")
+        codes = set(item.get("code") for item in run_doctor(extension))
+        self.assertIn("DEPLOYMENT_FILE_UNDECLARED", codes)
 
 
 if __name__ == "__main__":
