@@ -40,7 +40,7 @@ This design prevents a simple `Save As` or filename change from turning an other
 
 The pyRevit Compare Revision command requires both inputs to be `raw_snapshot.json` files inside intact snapshot packages that pass `validate_snapshot_folder()`. A tampered, partial, moved-alone, or orphaned raw snapshot is rejected before comparison. The offline CLI uses the same default; `--allow-standalone` exists only for fixtures/development and is recorded in comparison evidence as `STANDALONE_UNVERIFIED`.
 
-Comparison manifests record both the SHA-256 of each raw input and its `package_status`. When a source was recorded as `VALID_PACKAGE`, later comparison validation also re-checks that source package if the original input files are still available.
+Comparison manifests record both the SHA-256 of each raw input and its `package_status`. When a source was recorded as `VALID_PACKAGE`, later comparison validation also re-checks that source package if the original input files are still available. Comparison validation also recomputes `quantity_deltas.csv` and `element_changes.csv` from `revision_diff.json`; when the original baseline/current snapshots are still available, it recomputes the full revision result and requires it to match `revision_diff.json`.
 
 ## Revision statuses
 
@@ -54,7 +54,7 @@ Comparison manifests record both the SHA-256 of each raw input and its `package_
 
 `POSSIBLE_RECREATED` is inferred, never authoritative, and inferred matches are constrained to the same logical model/link scope. A pair is emitted only when baseline and current elements are reciprocal, unambiguous best candidates above the configured confidence threshold.
 
-Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity when both snapshots have non-empty Revit Project Number values and those values differ.
+Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity when both snapshots have non-empty Revit Project Number values and those values differ. When project numbers do not establish identity, differing non-empty Revit Project Name values emit `PROJECT_NAME_MISMATCH` (HIGH when project numbers are blank/unavailable, MEDIUM when the same populated project number is present on both snapshots).
 
 ## Configuration provenance
 
@@ -83,7 +83,8 @@ Category specs are cached for the duration of the command so per-element audit r
 - `element_key` values are present and unique;
 - `source_scope_key` is present for stable revision comparison;
 - manifest/snapshot element and audit counts agree with exported records;
-- manifest identity/status metadata agrees with hashed raw snapshot metadata.
+- manifest identity/status metadata agrees with hashed raw snapshot metadata;
+- `elements.csv`, `quantities.csv`, `audit_issues.csv`, and `summary.csv` are recomputed from `raw_snapshot.json` and must match exactly, so merely changing a CSV and updating its hash is not sufficient.
 
 Use `python tools/revit_estimating.py validate <snapshot-folder>` or the focused `tools/validate_snapshot.py` command.
 
