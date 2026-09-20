@@ -28,6 +28,14 @@ jobs:
         run: python tools/revit_estimating.py compare tests/fixtures/baseline_snapshot.json tests/fixtures/current_snapshot.json --output .ci-output --allow-standalone --json
       - name: Build self-contained pyRevit extension
         run: python tools/revit_estimating.py build-extension --output .ci-output/RevitEstimating.extension.zip --json
+      - name: Upload deployment ZIP
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: RevitEstimating-extension
+          path: .ci-output/RevitEstimating.extension.zip
+          if-no-files-found: error
+          retention-days: 30
       - name: Run synthetic comparison benchmark
         run: python tools/revit_estimating.py benchmark --elements 10000 --replacements 600 --max-seconds 30 --json
       - name: Compile dependency-free core and tools
