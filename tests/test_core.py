@@ -346,6 +346,16 @@ class PackageTests(unittest.TestCase):
         self.assertIn("SCHEMA_VERSION_UNSUPPORTED", codes)
         self.assertIn("SCHEMA_VERSION_MISMATCH", codes)
 
+    def test_snapshot_validator_rejects_unvalidated_status_claim_divergence(self):
+        folder = self._build_snapshot()
+        manifest_path = os.path.join(folder, "manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["status"] = "ESTIMATOR_VALIDATED"
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_snapshot_folder(folder))
+        self.assertIn("STATUS_INVALID", codes)
+        self.assertIn("MANIFEST_METADATA_MISMATCH", codes)
+
 
 if __name__ == "__main__":
     unittest.main()
