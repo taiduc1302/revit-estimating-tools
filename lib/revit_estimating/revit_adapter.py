@@ -325,7 +325,7 @@ def extract_model(host_doc, app=None):
                     elements.append(extract_element(element, context, spec))
                 except Exception as exc:
                     link_issues.append({
-                        "rule_id": "ELEMENT_EXTRACTION_FAILED", "severity": "MEDIUM",
+                        "rule_id": "ELEMENT_EXTRACTION_FAILED", "severity": "HIGH",
                         "source_document": context.get("source_document"),
                         "message": "Element extraction failed for %s: %s" % (spec.get("name"), to_text(exc)),
                         "values": {"element_id": element_id_value(element.Id), "category": spec.get("name")}
