@@ -204,6 +204,58 @@ def _validate_derived_evidence(folder, expected_texts, findings):
             ))
 
 
+def _validate_comparison_semantics(result, findings):
+    summary = result.get("summary")
+    if not isinstance(summary, dict):
+        return
+
+    groups = (
+        ("ADDED", "added"),
+        ("REMOVED", "removed"),
+        ("MODIFIED", "modified"),
+        ("POSSIBLE_RECREATED", "possible_recreated"),
+    )
+    counts = {}
+    for summary_key, group_key in groups:
+        items = result.get(group_key)
+        if not isinstance(items, list):
+            findings.append(finding("COMPARISON_GROUP_INVALID", "Comparison group must be a list.", {"group": group_key}))
+            continue
+        counts[summary_key] = len(items)
+        declared = summary.get(summary_key)
+        try:
+            declared_int = int(declared)
+        except (TypeError, ValueError):
+            findings.append(finding("COMPARISON_SUMMARY_VALUE_INVALID", "Comparison summary value must be an integer.", {"field": summary_key, "value": declared}))
+            continue
+        if declared_int != len(items):
+            findings.append(finding("COMPARISON_SUMMARY_COUNT_MISMATCH", "Comparison summary count does not match detailed records.", {"field": summary_key, "declared": declared_int, "actual": len(items)}))
+
+    unchanged = summary.get("UNCHANGED")
+    try:
+        unchanged = int(unchanged)
+    except (TypeError, ValueError):
+        findings.append(finding("COMPARISON_SUMMARY_VALUE_INVALID", "Comparison summary UNCHANGED must be an integer.", {"value": unchanged}))
+        unchanged = None
+
+    baseline_total = summary.get("BASELINE_ELEMENTS")
+    current_total = summary.get("CURRENT_ELEMENTS")
+    try:
+        baseline_total = int(baseline_total)
+        current_total = int(current_total)
+    except (TypeError, ValueError):
+        findings.append(finding("COMPARISON_TOTALS_INVALID", "Comparison baseline/current element totals must be integers."))
+        return
+
+    if unchanged is not None and len(counts) == len(groups):
+        expected_baseline = counts["REMOVED"] + counts["MODIFIED"] + counts["POSSIBLE_RECREATED"] + unchanged
+        expected_current = counts["ADDED"] + counts["MODIFIED"] + counts["POSSIBLE_RECREATED"] + unchanged
+        if baseline_total != expected_baseline:
+            findings.append(finding("COMPARISON_BASELINE_TOTAL_MISMATCH", "BASELINE_ELEMENTS does not reconcile to detailed comparison groups.", {"declared": baseline_total, "reconciled": expected_baseline}))
+        if current_total != expected_current:
+            findings.append(finding("COMPARISON_CURRENT_TOTAL_MISMATCH", "CURRENT_ELEMENTS does not reconcile to detailed comparison groups.", {"declared": current_total, "reconciled": expected_current}))
+
+
 def _validate_comparison_recomputation(manifest, result, findings):
     baseline = manifest.get("baseline_snapshot") or {}
     current = manifest.get("current_snapshot") or {}
@@ -436,6 +488,7 @@ def validate_comparison_folder(folder, verify_inputs=True):
     elif manifest_summary != result_summary:
         findings.append(finding("COMPARISON_SUMMARY_MISMATCH", "Comparison manifest summary does not match revision_diff.json."))
 
+    _validate_comparison_semantics(result, findings)
     _validate_input_snapshot_evidence(manifest.get("baseline_snapshot"), "Baseline", findings, verify_file=verify_inputs)
     _validate_input_snapshot_evidence(manifest.get("current_snapshot"), "Current", findings, verify_file=verify_inputs)
     if verify_inputs:
