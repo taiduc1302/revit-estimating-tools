@@ -55,6 +55,7 @@ Comparison manifests record both the SHA-256 of each raw input and its `package_
 `POSSIBLE_RECREATED` is inferred, never authoritative, and inferred matches are constrained to the same logical model/link scope. A pair is emitted only when baseline and current elements are reciprocal, unambiguous best candidates above the configured confidence threshold. To prevent pathological quadratic work on large revisions, inference is skipped for any single scope/category bucket exceeding 250,000 candidate pairs; those elements remain explicit `ADDED`/`REMOVED` records and the comparison emits `RECREATED_MATCH_SKIPPED_LARGE_BUCKET`.
 
 Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity when both snapshots have non-empty Revit Project Number values and those values differ. When project numbers do not establish identity, differing non-empty Revit Project Name values emit `PROJECT_NAME_MISMATCH` (HIGH when project numbers are blank/unavailable, MEDIUM when the same populated project number is present on both snapshots).
+`LINK_SCOPE_SET_CHANGED` is MEDIUM when the set of linked-model instance scopes differs between snapshots. `LINK_INSTANCE_IDENTITY_CHANGED` is HIGH when the same linked document/name evidence appears with a different instance scope identity; this can happen when a Revit link is removed and reinserted and may produce widespread identity-driven `ADDED`/`REMOVED` records.
 
 ## Configuration provenance
 
