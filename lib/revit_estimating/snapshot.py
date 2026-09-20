@@ -3,9 +3,11 @@
 from __future__ import absolute_import, print_function
 
 import os
+import shutil
 
 from .hashing import sha256_file
 from .manifest import next_snapshot_folder
+from .config import category_config_path
 from .serialization import ensure_dir, write_json, write_text, read_json
 from .evidence import snapshot_csv_texts
 
@@ -28,9 +30,11 @@ def write_snapshot_package(output_root, manifest, elements, audit_issues):
     issues_path = os.path.join(folder, "audit_issues.csv")
     summary_path = os.path.join(folder, "summary.csv")
     manifest_path = os.path.join(folder, "manifest.json")
+    category_config_evidence_path = os.path.join(folder, "categories_config.json")
 
     raw_snapshot = build_raw_snapshot(manifest, elements, audit_issues)
     write_json(raw_path, raw_snapshot)
+    shutil.copyfile(category_config_path(), category_config_evidence_path)
     derived_csv = snapshot_csv_texts(raw_snapshot)
     write_text(elements_path, derived_csv["elements.csv"])
     write_text(quantities_path, derived_csv["quantities.csv"])
@@ -38,7 +42,7 @@ def write_snapshot_package(output_root, manifest, elements, audit_issues):
     write_text(summary_path, derived_csv["summary.csv"])
 
     evidence = {}
-    for path in (raw_path, elements_path, quantities_path, issues_path, summary_path):
+    for path in (raw_path, elements_path, quantities_path, issues_path, summary_path, category_config_evidence_path):
         evidence[os.path.basename(path)] = sha256_file(path)
     final_manifest = dict(manifest)
     final_manifest["evidence_hashes"] = evidence
