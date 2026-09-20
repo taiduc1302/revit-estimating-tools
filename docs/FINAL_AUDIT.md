@@ -108,6 +108,14 @@ If one element cannot be extracted, the resulting snapshot can be quantity-incom
 
 The offline `package --output` path previously accepted any filename, including `manifest.json` or another evidence file inside the source snapshot folder. Packaging now rejects output paths that collide with required or optional snapshot evidence before opening the ZIP for writing.
 
+### Large recreated-element candidate sets could become quadratic
+
+Recreated-element inference is advisory and is now bounded per logical scope/category bucket. If a bucket exceeds 250,000 candidate pairs, inference is skipped for that bucket, the elements remain explicit `ADDED`/`REMOVED` records, and the comparison emits `RECREATED_MATCH_SKIPPED_LARGE_BUCKET`. A synthetic offline benchmark is included to detect future performance regressions.
+
+### Reinserted Revit links could look like wholesale scope change without context
+
+Linked-element identity intentionally includes the link-instance scope. If a link is removed and reinserted, its instance identity may change and many elements can legitimately appear `ADDED`/`REMOVED`. Comparison now emits `LINK_SCOPE_SET_CHANGED` when linked scopes differ and `LINK_INSTANCE_IDENTITY_CHANGED` when the same linked document/name evidence appears with different scope identities.
+
 ### Derived CSV evidence could drift while hashes were recomputed
 
 SHA-256 checks alone could not distinguish a legitimate regenerated CSV from a modified CSV whose manifest hash had also been updated. Snapshot validation now deterministically regenerates all four CSV review surfaces from authoritative `raw_snapshot.json` and requires byte-equivalent text. Revision-comparison validation does the same for its two CSV outputs from `revision_diff.json`. When recorded baseline/current snapshots remain available, the validator also recomputes the entire revision result and compares it to `revision_diff.json`.
