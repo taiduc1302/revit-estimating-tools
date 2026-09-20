@@ -38,6 +38,13 @@ class InstallabilityTests(unittest.TestCase):
         findings = run_doctor(target)
         self.assertTrue(validation_passed(findings), findings)
 
+    def test_deployable_license_matches_repository_license(self):
+        with open(os.path.join(ROOT, "LICENSE"), "rb") as stream:
+            repository_license = stream.read()
+        with open(os.path.join(EXTENSION, "LICENSE"), "rb") as stream:
+            extension_license = stream.read()
+        self.assertEqual(extension_license, repository_license)
+
     def test_extension_without_required_suffix_fails_doctor(self):
         target = os.path.join(self.root, "RevitEstimating")
         shutil.copytree(EXTENSION, target)
@@ -86,6 +93,7 @@ class InstallabilityTests(unittest.TestCase):
         self.assertTrue(names)
         self.assertTrue(all(name.startswith(prefix) for name in names))
         self.assertIn(prefix + "extension.json", names)
+        self.assertIn(prefix + "LICENSE", names)
         self.assertIn(prefix + "lib/revit_estimating/__init__.py", names)
         self.assertIn(prefix + "config/categories.json", names)
         self.assertFalse(any("__pycache__" in name or name.endswith((".pyc", ".pyo")) for name in names))
