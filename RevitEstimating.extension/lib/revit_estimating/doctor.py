@@ -39,7 +39,8 @@ def run_doctor(repository_root):
     root = os.path.abspath(repository_root)
     extension = os.path.join(root, "RevitEstimating.extension")
     manifest_path = os.path.join(extension, "extension.json")
-    categories_path = os.path.join(root, "config", "categories.json")
+    runtime_lib = os.path.join(extension, "lib", "revit_estimating")
+    categories_path = os.path.join(extension, "config", "categories.json")
     schemas = (
         os.path.join(root, "schemas", "manifest.schema.json"),
         os.path.join(root, "schemas", "snapshot.schema.json"),
@@ -48,6 +49,11 @@ def run_doctor(repository_root):
     if not os.path.isdir(extension):
         findings.append(finding("EXTENSION_FOLDER_MISSING", "RevitEstimating.extension folder is missing."))
         return findings
+
+    if not os.path.isfile(os.path.join(runtime_lib, "__init__.py")):
+        findings.append(finding("EXTENSION_RUNTIME_MISSING", "Self-contained extension runtime lib/revit_estimating is missing."))
+    if os.path.isdir(os.path.join(root, "lib", "revit_estimating")) or os.path.isfile(os.path.join(root, "config", "categories.json")):
+        findings.append(finding("LEGACY_RUNTIME_DUPLICATE", "Legacy repository-level runtime/config duplicates must not exist; the extension is the single runtime source of truth."))
 
     if not os.path.isfile(manifest_path):
         findings.append(finding("EXTENSION_MANIFEST_MISSING", "extension.json is missing."))
@@ -74,6 +80,8 @@ def run_doctor(repository_root):
             continue
 
         script_text = _read_text(script_path)
+        if "sys.path.insert" in script_text or 'os.path.join(ROOT, "lib")' in script_text:
+            findings.append(finding("BUTTON_PATH_HACK_DETECTED", "Button script must rely on the pyRevit extension lib path instead of repository-relative sys.path injection.", {"button": relative}))
         first_line = script_text.splitlines()[0].lower() if script_text.splitlines() else ""
         if "python3" in first_line:
             findings.append(finding("UNSUPPORTED_BUTTON_ENGINE", "V0.1 button must remain on default IronPython while using current pyRevit forms helpers.", {"button": relative}))
