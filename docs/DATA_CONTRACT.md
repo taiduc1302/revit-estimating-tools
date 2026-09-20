@@ -59,7 +59,7 @@ Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity wh
 
 ## Configuration provenance
 
-`config/categories.json` is required at runtime. Extraction fails closed if it is missing, malformed, uses an unsupported schema version, contains duplicate names/BuiltInCategory mappings, declares an unsupported primary quantity, or uses non-boolean control flags.
+`RevitEstimating.extension/config/categories.json` is the governed runtime file (recorded package-relatively as `config/categories.json`) and is required at runtime. Extraction fails closed if it is missing, malformed, uses an unsupported schema version, contains duplicate names/BuiltInCategory mappings, declares an unsupported primary quantity, or uses non-boolean control flags.
 
 Each snapshot also embeds the exact governed category configuration as `categories_config.json`; its file SHA-256 must match both the manifest evidence hash and `extraction_config.categories.sha256`. This keeps the actual extraction rules recoverable with the snapshot instead of storing only an unverifiable historical digest.
 
