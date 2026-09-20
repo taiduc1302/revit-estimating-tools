@@ -52,7 +52,7 @@ Comparison manifests record both the SHA-256 of each raw input and its `package_
 
 `MODIFIED` includes selected classification, phase, workset, representative location, physical size, normalized quantity, aggregation status, and estimating-parameter changes.
 
-`POSSIBLE_RECREATED` is inferred, never authoritative, and inferred matches are constrained to the same logical model/link scope.
+`POSSIBLE_RECREATED` is inferred, never authoritative, and inferred matches are constrained to the same logical model/link scope. A pair is emitted only when baseline and current elements are reciprocal, unambiguous best candidates above the configured confidence threshold.
 
 Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity when both snapshots have non-empty Revit Project Number values and those values differ.
 
@@ -72,7 +72,7 @@ Category specs are cached for the duration of the command so per-element audit r
 
 ## Snapshot integrity
 
-`manifest.json` records hashes for exported evidence files. Offline validation checks:
+`manifest.json` records hashes for exported evidence files. Offline validation also requires the manifest status to remain `NOT_ESTIMATOR_VALIDATED` and checks that mirrored manifest metadata agrees with the metadata inside hashed `raw_snapshot.json`. Offline validation checks:
 
 - all required package files exist;
 - manifest and raw snapshot schema versions agree and are supported;
@@ -82,13 +82,18 @@ Category specs are cached for the duration of the command so per-element audit r
 - `elements` and `audit_issues` have the expected container types;
 - `element_key` values are present and unique;
 - `source_scope_key` is present for stable revision comparison;
-- manifest/snapshot element and audit counts agree with exported records.
+- manifest/snapshot element and audit counts agree with exported records;
+- manifest identity/status metadata agrees with hashed raw snapshot metadata.
 
 Use `python tools/revit_estimating.py validate <snapshot-folder>` or the focused `tools/validate_snapshot.py` command.
 
 ## Evidence/privacy note
 
-`source_document_identity` may contain a full Revit model path, and `run_log.json` may contain the export path. These fields improve traceability but can expose internal filesystem/project information if a package is shared externally. V0.1 does not automatically redact paths.
+`source_document_identity` may contain a full Revit model path, `run_log.json` may contain the export path, and comparison manifests record absolute baseline/current snapshot paths so they can be revalidated later. These fields improve traceability but can expose internal filesystem/project information if a package is shared externally. V0.1 does not automatically redact paths.
+
+SHA-256 evidence hashes provide corruption/tamper detection only while the manifest itself is trusted. V0.1 does not digitally sign manifests and therefore does not provide cryptographic authenticity against an actor who can edit the manifest and recompute every evidence hash. External signing or a trusted immutable hash registry is a later governance capability.
+
+CSV exports are spreadsheet-safe review surfaces: formula-like text values are prefixed so Excel does not execute them as formulas. `raw_snapshot.json` remains the authoritative unmodified evidence representation for those text values.
 
 ## Validation status
 
