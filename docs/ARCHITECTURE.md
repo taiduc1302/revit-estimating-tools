@@ -14,7 +14,7 @@ Revit API
   -> estimator review / external downstream workflow
 ```
 
-The Revit API boundary is isolated in `collectors.py`, `parameters.py`, and `revit_adapter.py`. Most core logic has no Autodesk dependency and can be unit-tested outside Revit.
+The deployable boundary is the single `RevitEstimating.extension/` folder. Its `lib/revit_estimating/` package contains the Revit API boundary (`collectors.py`, `parameters.py`, and `revit_adapter.py`) plus dependency-free core modules, while `config/categories.json` travels with the extension. Most core logic has no Autodesk dependency and can be unit-tested outside Revit.
 
 ## Design principles
 
@@ -35,7 +35,7 @@ Fallback fingerprints use logical scope, category, family/type, system/material,
 
 ## Offline boundary
 
-`tools/revit_estimating.py` exposes validate/compare/package workflows without Revit. Golden snapshot fixtures exercise the same diff engine used by the pyRevit command. Validators recompute snapshot/comparison CSV evidence from authoritative JSON, and comparison validation can recompute the entire result from recorded baseline/current snapshots when those inputs remain available. This allows most transformation, identity, integrity and export behavior to be tested in CI; only the Autodesk API adapter and actual ribbon execution require a live Revit environment.
+`tools/revit_estimating.py` exposes doctor/validate/compare/package/build-extension/benchmark workflows without Revit. The offline CLI imports the exact same runtime package from `RevitEstimating.extension/lib`; there is no second repository-level runtime copy. Golden snapshot fixtures exercise the same diff engine used by the pyRevit command. Validators recompute snapshot/comparison CSV evidence from authoritative JSON, and comparison validation can recompute the entire result from recorded baseline/current snapshots when those inputs remain available. This allows most transformation, identity, integrity and export behavior to be tested in CI; only the Autodesk API adapter and actual ribbon execution require a live Revit environment.
 
 ## Out of scope for V0.1
 
