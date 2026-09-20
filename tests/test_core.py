@@ -256,6 +256,17 @@ class SerializationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             canonical_json({"value": float("nan")})
 
+    def test_read_json_rejects_non_finite_numbers(self):
+        root = tempfile.mkdtemp()
+        try:
+            path = os.path.join(root, "bad.json")
+            with open(path, "w") as stream:
+                stream.write('{"value": NaN}')
+            with self.assertRaises(ValueError):
+                read_json(path)
+        finally:
+            shutil.rmtree(root)
+
     def test_csv_escapes_formula_like_text_but_preserves_numeric_values(self):
         root = tempfile.mkdtemp()
         try:
@@ -390,6 +401,20 @@ class PackageTests(unittest.TestCase):
         write_json(path, data)
         findings = validate_snapshot_folder(folder)
         self.assertIn("ELEMENT_KEY_DUPLICATE", set(item["code"] for item in findings))
+
+    def test_snapshot_validator_reports_malformed_element_without_crashing(self):
+        folder = self._build_snapshot()
+        raw_path = os.path.join(folder, "raw_snapshot.json")
+        data = read_json(raw_path)
+        data["elements"][0] = "not-an-element-object"
+        write_json(raw_path, data)
+        manifest_path = os.path.join(folder, "manifest.json")
+        manifest = read_json(manifest_path)
+        manifest["evidence_hashes"]["raw_snapshot.json"] = sha256_file(raw_path)
+        write_json(manifest_path, manifest)
+        codes = set(item["code"] for item in validate_snapshot_folder(folder))
+        self.assertIn("DERIVED_EVIDENCE_RECOMPUTATION_FAILED", codes)
+        self.assertIn("ELEMENT_INVALID", codes)
 
     def test_snapshot_validator_detects_unsupported_schema(self):
         folder = self._build_snapshot()
