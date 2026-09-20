@@ -11,7 +11,7 @@ from .evidence import snapshot_csv_texts, comparison_csv_texts
 from .diff import compare_snapshots
 from .utils import to_text
 
-REQUIRED_FILES = ("manifest.json", "raw_snapshot.json", "elements.csv", "quantities.csv", "audit_issues.csv", "summary.csv")
+REQUIRED_FILES = ("manifest.json", "raw_snapshot.json", "elements.csv", "quantities.csv", "audit_issues.csv", "summary.csv", "categories_config.json")
 EVIDENCE_FILES = REQUIRED_FILES[1:]
 OPTIONAL_EVIDENCE_FILES = ("run_log.json",)
 COMPARISON_REQUIRED_FILES = ("comparison_manifest.json", "revision_diff.json", "quantity_deltas.csv", "element_changes.csv")
@@ -77,6 +77,45 @@ def _validate_category_config_provenance(manifest, snapshot, findings):
     metadata = snapshot.get("metadata")
     if isinstance(metadata, dict) and metadata.get("extraction_config") != extraction:
         findings.append(finding("EXTRACTION_CONFIG_MISMATCH", "Raw snapshot extraction_config does not match manifest extraction_config."))
+
+
+def _validate_embedded_category_config(folder, manifest, findings):
+    extraction = manifest.get("extraction_config") or {}
+    provenance = extraction.get("categories") or {}
+    path = os.path.join(folder, "categories_config.json")
+    if not os.path.isfile(path):
+        return
+    expected_hash = to_text(provenance.get("sha256")).strip().lower()
+    actual_hash = sha256_file(path).lower()
+    if expected_hash and expected_hash != actual_hash:
+        findings.append(finding(
+            "CATEGORY_CONFIG_PROVENANCE_MISMATCH",
+            "Embedded category configuration does not match the SHA-256 recorded in extraction provenance.",
+            {"declared": expected_hash, "actual": actual_hash},
+        ))
+    data = _read_json_object(path, "CATEGORY_CONFIG_EVIDENCE_INVALID", findings)
+    if data is None:
+        return
+    if data.get("schema_version") != provenance.get("schema_version"):
+        findings.append(finding(
+            "CATEGORY_CONFIG_SCHEMA_MISMATCH",
+            "Embedded category configuration schema_version does not match extraction provenance.",
+            {"declared": provenance.get("schema_version"), "actual": data.get("schema_version")},
+        ))
+    categories = data.get("categories")
+    if not isinstance(categories, list):
+        findings.append(finding("CATEGORY_CONFIG_EVIDENCE_INVALID", "Embedded category configuration must contain a categories list."))
+        return
+    try:
+        declared_count = int(provenance.get("category_count"))
+    except (TypeError, ValueError):
+        declared_count = None
+    if declared_count is not None and declared_count != len(categories):
+        findings.append(finding(
+            "CATEGORY_CONFIG_COUNT_MISMATCH",
+            "Embedded category configuration count does not match extraction provenance.",
+            {"declared": declared_count, "actual": len(categories)},
+        ))
 
 
 def _validate_snapshot_manifest_contract(manifest, snapshot, findings):
@@ -257,6 +296,7 @@ def validate_snapshot_folder(folder):
 
     _validate_snapshot_manifest_contract(manifest, snapshot, findings)
     _validate_category_config_provenance(manifest, snapshot, findings)
+    _validate_embedded_category_config(folder, manifest, findings)
     expected_hashes = _validate_declared_hashes(folder, EVIDENCE_FILES, manifest.get("evidence_hashes"), findings)
     _validate_optional_hashes(folder, OPTIONAL_EVIDENCE_FILES, expected_hashes, findings)
 
