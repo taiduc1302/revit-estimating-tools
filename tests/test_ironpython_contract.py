@@ -6,7 +6,7 @@ import re
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LIB = os.path.join(ROOT, "lib", "revit_estimating")
+LIB = os.path.join(ROOT, "RevitEstimating.extension", "lib", "revit_estimating")
 EXTENSION = os.path.join(ROOT, "RevitEstimating.extension")
 
 BANNED_IMPORT_ROOTS = set(("pathlib", "dataclasses", "typing", "enum", "statistics"))
