@@ -64,7 +64,7 @@ Model Audit, Extract Snapshot, and Compare Revision now catch top-level failures
 
 ### Category configuration was fail-open and repeatedly read during audit
 
-The runtime category loader previously fell back silently to a built-in list when `config/categories.json` was missing or invalid. That could produce plausible quantities from a config different from the one named in the manifest. In addition, `audit_element()` reached `load_category_specs()` through `spec_by_name()` for every element, creating avoidable file I/O on large models.
+The runtime category loader previously fell back silently to a built-in list when the governed `config/categories.json` was missing or invalid. That could produce plausible quantities from a config different from the one named in the manifest. In addition, `audit_element()` reached `load_category_specs()` through `spec_by_name()` for every element, creating avoidable file I/O on large models.
 
 The loader is now fail-closed, validates schema/duplicates/quantity types/control flags, caches the validated specs for the command, and records config SHA-256/schema/category-count provenance in every extracted snapshot.
 
@@ -134,7 +134,15 @@ The serializer already stopped emitting non-finite numbers, but Python's default
 
 ### Category configuration provenance stored only a digest
 
-The snapshot recorded the SHA-256 and metadata of `config/categories.json`, but not the exact rules file itself. A historical package could therefore prove that a particular digest was declared without preserving the configuration needed to reproduce or inspect the extraction rules. Snapshots now embed `categories_config.json`; validation cross-checks its evidence hash, provenance SHA-256, schema version, and category count.
+The snapshot recorded the SHA-256 and metadata of the extension-local `config/categories.json`, but not the exact rules file itself. A historical package could therefore prove that a particular digest was declared without preserving the configuration needed to reproduce or inspect the extraction rules. Snapshots now embed `categories_config.json`; validation cross-checks its evidence hash, provenance SHA-256, schema version, and category count.
+
+### Runtime deployment depended on repository-neighbor folders
+
+The original button scripts manually prepended a repository-level `lib/` path, while governed config also lived outside the `.extension` folder. Copying only `RevitEstimating.extension` could therefore leave a ribbon that loaded but failed at runtime. V0.1 now uses pyRevit's native extension-local `lib/` discovery, carries `config/categories.json` inside the extension, and has no repository-level runtime/config duplicate. Standalone doctor tests copy only the extension folder and verify runtime/config loading without repository neighbors.
+
+### Deployment artifact was not reproducibly buildable
+
+The offline CLI now provides `build-extension`, which first runs doctor and then creates a deterministic ZIP containing only `RevitEstimating.extension`. File ordering and ZIP timestamps are fixed; installability tests build twice and require identical SHA-256 values. CI also builds the artifact on every matrix job.
 
 ## Controls verified by automated tests
 
@@ -153,7 +161,8 @@ The automated suite covers or statically checks:
 - revision-comparison input/output hashes, source-package integrity enforcement, and structural input-evidence validation even when source-file existence checks are skipped;
 - collision-safe output folders;
 - project-number mismatch warnings;
-- expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, read-only transaction contract, and a static IronPython compatibility proxy;
+- expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, read-only transaction contract, no repository-path injection, and a static IronPython compatibility proxy;
+- standalone `.extension` doctor validation, copied-runtime/config import, and deterministic deployment-ZIP SHA-256;
 - fail-closed category configuration loading, caching, and SHA-256 provenance;
 - spreadsheet-formula escaping for CSV review surfaces while preserving numeric values;
 - rejection of non-finite JSON values and exclusion of non-positive quantities from aggregate totals;
