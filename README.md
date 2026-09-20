@@ -17,11 +17,11 @@ The project deliberately does **not** modify Revit model data, price work, creat
 
 1. Install a compatible pyRevit 6.5.x release.
 2. Clone this repository to a local folder.
-3. Add the repository folder as a pyRevit custom extension search path, or place/symlink `RevitEstimating.extension` in a configured pyRevit extensions directory while preserving access to the repository `lib` and `config` folders.
+3. Either add the repository root as a pyRevit custom extension search path **or** copy/symlink the single `RevitEstimating.extension` folder into any configured pyRevit extensions directory.
 4. Reload pyRevit.
 5. Open Revit and use the **Estimating** tab.
 
-`config/categories.json` is a governed runtime input, not an optional convenience file. Model Audit and Extract Snapshot fail closed if it is missing, malformed, schema-incompatible, or internally inconsistent. Each snapshot records the config path, schema version, category count, and SHA-256 used for that extraction.
+`RevitEstimating.extension` is self-contained: its runtime package lives under `lib/revit_estimating` and its governed category configuration lives under `config/categories.json`. No repository-level `lib` or `config` folder is required after deployment. Model Audit and Extract Snapshot fail closed if the embedded category config is missing, malformed, schema-incompatible, or internally inconsistent.
 
 For development setup and validation details see `docs/DEVELOPMENT.md` and `docs/TESTING.md`.
 
@@ -52,12 +52,13 @@ python tools/revit_estimating.py validate <snapshot-folder>
 python tools/revit_estimating.py compare baseline/raw_snapshot.json current/raw_snapshot.json --output comparisons
 python tools/revit_estimating.py validate-comparison <RevisionComparison_folder>
 python tools/revit_estimating.py package <snapshot-folder>
+python tools/revit_estimating.py build-extension --output dist/RevitEstimating.extension.zip --json
 python tools/revit_estimating.py benchmark --elements 20000 --replacements 600 --json
 ```
 
 Add `--json` to any command for machine-readable output. Compare requires each `raw_snapshot.json` to remain inside an intact snapshot package whose manifest/evidence hashes validate. `--allow-standalone` is an explicit development/fixture escape hatch and should not be used for production evidence. `validate-comparison` checks generated comparison evidence and the exact baseline/current input hashes; add `--skip-input-files` when the original input files have intentionally been moved and only the generated comparison package should be verified.
 
-Comparison rejects unsupported snapshot schema versions and duplicate element identities instead of silently producing a partial result. The `benchmark` command generates synthetic snapshots entirely offline and reports comparison throughput; it is intended as a regression/performance signal, not as a substitute for live Revit extraction benchmarking. The older `tools/validate_snapshot.py` entry point remains available as a focused snapshot-validator command.
+Comparison rejects unsupported snapshot schema versions and duplicate element identities instead of silently producing a partial result. `build-extension` runs the offline doctor and creates a deterministic ZIP containing only the self-contained pyRevit extension. The `benchmark` command generates synthetic snapshots entirely offline and reports comparison throughput; it is intended as a regression/performance signal, not as a substitute for live Revit extraction benchmarking. The older `tools/validate_snapshot.py` entry point remains available as a focused snapshot-validator command.
 
 ## Revision identity
 
