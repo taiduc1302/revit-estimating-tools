@@ -215,6 +215,19 @@ class DiffTests(unittest.TestCase):
         self.assertEqual(result["summary"]["REMOVED"], 1)
         self.assertEqual(result["removed"][0]["element_key"], "HOST:a")
 
+    def test_large_recreated_bucket_is_skipped_with_warning(self):
+        baseline = []
+        current = []
+        for index in range(501):
+            baseline.append(element(key="HOST:old-%s" % index, unique_id="old-%s" % index, mark=""))
+            current.append(element(key="HOST:new-%s" % index, unique_id="new-%s" % index, mark=""))
+        result = compare_snapshots(snapshot(baseline), snapshot(current))
+        self.assertEqual(result["summary"]["POSSIBLE_RECREATED"], 0)
+        self.assertEqual(result["summary"]["REMOVED"], 501)
+        self.assertEqual(result["summary"]["ADDED"], 501)
+        codes = set(item.get("code") for item in result.get("warnings") or [])
+        self.assertIn("RECREATED_MATCH_SKIPPED_LARGE_BUCKET", codes)
+
     def test_duplicate_identity_is_rejected(self):
         with self.assertRaises(ValueError):
             compare_snapshots(snapshot([element(), element(length=12)]), snapshot([element(key="HOST:u2", unique_id="u2")]))
