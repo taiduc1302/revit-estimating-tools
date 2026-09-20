@@ -35,6 +35,9 @@ def _read_json(path, code, findings):
 
 def _resolve_target(target):
     absolute = os.path.abspath(target)
+    basename = os.path.basename(absolute).lower()
+    if basename.endswith(".extension"):
+        return None, absolute
     if os.path.isdir(absolute) and os.path.isfile(os.path.join(absolute, "extension.json")):
         return None, absolute
     return absolute, os.path.join(absolute, "RevitEstimating.extension")
@@ -58,6 +61,9 @@ def run_doctor(target):
     if not os.path.isdir(extension):
         findings.append(finding("EXTENSION_FOLDER_MISSING", "RevitEstimating.extension folder is missing."))
         return findings
+
+    if not os.path.basename(extension).lower().endswith(".extension"):
+        findings.append(finding("EXTENSION_SUFFIX_INVALID", "pyRevit UI extension folder must end with .extension.", {"folder": os.path.basename(extension)}))
 
     if not os.path.isfile(os.path.join(runtime_lib, "__init__.py")):
         findings.append(finding("EXTENSION_RUNTIME_MISSING", "Self-contained extension runtime lib/revit_estimating is missing."))
