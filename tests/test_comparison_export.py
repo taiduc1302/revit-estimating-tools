@@ -101,6 +101,23 @@ class ComparisonExportTests(unittest.TestCase):
         self.assertIn("COMPARISON_RECOMPUTATION_MISMATCH", strict_codes)
         self.assertNotIn("COMPARISON_RECOMPUTATION_MISMATCH", relaxed_codes)
 
+    def test_comparison_validator_reconciles_summary_without_source_inputs(self):
+        folder = self._write()
+        result_path = os.path.join(folder, "revision_diff.json")
+        manifest_path = os.path.join(folder, "comparison_manifest.json")
+        result = read_json(result_path)
+        manifest = read_json(manifest_path)
+
+        result["summary"]["ADDED"] = result["summary"]["ADDED"] + 5
+        manifest["summary"] = dict(result["summary"])
+        write_json(result_path, result)
+        manifest["evidence_hashes"]["revision_diff.json"] = sha256_file(result_path)
+        write_json(manifest_path, manifest)
+
+        codes = set(item["code"] for item in validate_comparison_folder(folder, verify_inputs=False))
+        self.assertIn("COMPARISON_SUMMARY_COUNT_MISMATCH", codes)
+        self.assertIn("COMPARISON_CURRENT_TOTAL_MISMATCH", codes)
+
     def test_comparison_validator_can_skip_original_input_files(self):
         folder = self._write()
         manifest_path = os.path.join(folder, "comparison_manifest.json")
