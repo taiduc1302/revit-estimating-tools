@@ -55,6 +55,7 @@ All notable changes to this project will be documented here.
 - Project-name mismatch warnings provide a wrong-project fallback when Revit Project Number is blank or unavailable.
 - Linked-model locations fail closed to `null` when a trustworthy transform is unavailable or fails, avoiding mislabeled link-local coordinates.
 - JSON parsing rejects `NaN`/`Infinity`, and malformed derived evidence becomes a validator finding rather than an unhandled exception.
+- Snapshot packages embed the exact governed category configuration and validate it against recorded SHA-256/schema/count provenance.
 
 ### Validation status
 
