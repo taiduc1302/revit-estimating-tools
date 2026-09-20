@@ -50,6 +50,9 @@ All notable changes to this project will be documented here.
 - Model/link audit issue IDs include source/trace values to avoid collisions across repeated link problems.
 - Per-element extraction failures are HIGH severity because they can make quantity evidence incomplete.
 - CLI package output is blocked from overwriting snapshot evidence files.
+- Snapshot CSV review evidence is recomputed from `raw_snapshot.json` during validation, and comparison CSVs are recomputed from `revision_diff.json`.
+- When recorded comparison inputs are available, `revision_diff.json` is recomputed from baseline/current snapshots and must match.
+- Project-name mismatch warnings provide a wrong-project fallback when Revit Project Number is blank or unavailable.
 
 ### Validation status
 
