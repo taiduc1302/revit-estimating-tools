@@ -12,6 +12,7 @@ LIB = os.path.join(ROOT, "RevitEstimating.extension", "lib")
 if LIB not in sys.path:
     sys.path.insert(0, LIB)
 
+from revit_estimating import __version__, SCHEMA_VERSION
 from revit_estimating.comparison_export import write_revision_comparison
 from revit_estimating.diff import compare_snapshots
 from revit_estimating.hashing import sha256_file
@@ -201,6 +202,18 @@ def build_extension_command(args):
             print("FAIL: %s" % message)
         return 1
 
+    deployment_manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "tool": "Revit Estimating Tools",
+        "tool_version": __version__,
+        "files": {},
+    }
+    for relative, source in files:
+        deployment_manifest["files"][relative.replace(os.sep, "/")] = sha256_file(source)
+    deployment_manifest_text = json.dumps(
+        deployment_manifest, ensure_ascii=False, sort_keys=True, indent=2
+    ) + "\n"
+
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for relative, source in files:
             arcname = ("RevitEstimating.extension/" + relative.replace(os.sep, "/"))
@@ -211,11 +224,16 @@ def build_extension_command(args):
             info.external_attr = 0o644 << 16
             archive.writestr(info, data)
 
+        manifest_info = zipfile.ZipInfo("RevitEstimating.extension/deployment_manifest.json", (1980, 1, 1, 0, 0, 0))
+        manifest_info.compress_type = zipfile.ZIP_DEFLATED
+        manifest_info.external_attr = 0o644 << 16
+        archive.writestr(manifest_info, deployment_manifest_text.encode("utf-8"))
+
     payload = {
         "passed": True,
         "package": output_path,
         "sha256": sha256_file(output_path),
-        "file_count": len(files),
+        "file_count": len(files) + 1,
     }
     if args.json_output:
         print_json(payload)
