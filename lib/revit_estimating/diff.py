@@ -91,26 +91,53 @@ def _comparison_warnings(baseline_snapshot, current_snapshot):
     return warnings
 
 
+def _unambiguous_best(candidates, threshold, ambiguity_gap):
+    candidates = sorted(candidates, key=lambda item: (-item[0], item[1].get("element_key", "")))
+    if not candidates or candidates[0][0] < threshold:
+        return None
+    best_score, best = candidates[0]
+    second_score = candidates[1][0] if len(candidates) > 1 else 0.0
+    if second_score and (best_score - second_score) < ambiguity_gap:
+        return None
+    return best_score, best
+
+
 def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10):
-    pairs = []
-    used_added = set()
-    for old in sorted(removed, key=lambda x: x.get("element_key", "")):
-        candidates = []
+    """Return only reciprocal, unambiguous best matches to avoid greedy false positives."""
+    old_candidates = {}
+    new_candidates = {}
+    for old in removed:
+        old_key = old.get("element_key")
         for new in added:
-            if new.get("element_key") in used_added:
-                continue
             score = similarity_score(old, new)
-            if score > 0:
-                candidates.append((score, new))
-        candidates.sort(key=lambda item: (-item[0], item[1].get("element_key", "")))
-        if not candidates or candidates[0][0] < threshold:
+            if score <= 0:
+                continue
+            old_candidates.setdefault(old_key, []).append((score, new))
+            new_candidates.setdefault(new.get("element_key"), []).append((score, old))
+
+    best_for_old = {}
+    for old in removed:
+        best = _unambiguous_best(old_candidates.get(old.get("element_key"), []), threshold, ambiguity_gap)
+        if best is not None:
+            best_for_old[old.get("element_key")] = best
+
+    best_for_new = {}
+    for new in added:
+        best = _unambiguous_best(new_candidates.get(new.get("element_key"), []), threshold, ambiguity_gap)
+        if best is not None:
+            best_for_new[new.get("element_key")] = best
+
+    pairs = []
+    for old in sorted(removed, key=lambda x: x.get("element_key", "")):
+        old_key = old.get("element_key")
+        old_best = best_for_old.get(old_key)
+        if old_best is None:
             continue
-        best_score, best = candidates[0]
-        second_score = candidates[1][0] if len(candidates) > 1 else 0.0
-        if second_score and (best_score - second_score) < ambiguity_gap:
+        score, new = old_best
+        new_best = best_for_new.get(new.get("element_key"))
+        if new_best is None or new_best[1].get("element_key") != old_key:
             continue
-        used_added.add(best.get("element_key"))
-        pairs.append({"baseline": old, "current": best, "confidence": rounded(best_score, 4)})
+        pairs.append({"baseline": old, "current": new, "confidence": rounded(score, 4)})
     return pairs
 
 
