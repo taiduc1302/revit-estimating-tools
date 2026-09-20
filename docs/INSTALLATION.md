@@ -7,6 +7,7 @@ The deployable unit is exactly:
 ```text
 RevitEstimating.extension/
   extension.json
+  LICENSE
   config/
     categories.json
   lib/
@@ -77,7 +78,7 @@ A copied standalone extension can be checked with:
 python tools/revit_estimating.py doctor <path-to-RevitEstimating.extension> --json
 ```
 
-A passing standalone doctor confirms the expected extension structure, runtime library, governed config, button metadata, read-only transaction contract, and absence of legacy repository-path injection. It does **not** prove Autodesk Revit runtime behavior.
+A passing standalone doctor confirms the expected `.extension` folder suffix, extension structure, runtime library, governed config, license notice, button metadata, read-only transaction contract, and absence of legacy repository-path injection. Passing the outer folder of an accidentally double-nested extraction fails rather than being treated as a repository root. It does **not** prove Autodesk Revit runtime behavior.
 
 ## First live Revit validation
 
