@@ -60,6 +60,8 @@ Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity wh
 
 `config/categories.json` is required at runtime. Extraction fails closed if it is missing, malformed, uses an unsupported schema version, contains duplicate names/BuiltInCategory mappings, declares an unsupported primary quantity, or uses non-boolean control flags.
 
+Each snapshot also embeds the exact governed category configuration as `categories_config.json`; its file SHA-256 must match both the manifest evidence hash and `extraction_config.categories.sha256`. This keeps the actual extraction rules recoverable with the snapshot instead of storing only an unverifiable historical digest.
+
 The snapshot manifest `extraction_config.categories` object records:
 
 - `path` — repository-relative config path;
@@ -74,7 +76,7 @@ Category specs are cached for the duration of the command so per-element audit r
 
 `manifest.json` records hashes for exported evidence files. Offline validation also requires the manifest status to remain `NOT_ESTIMATOR_VALIDATED` and checks that mirrored manifest metadata agrees with the metadata inside hashed `raw_snapshot.json`. Offline validation checks:
 
-- all required package files exist;
+- all required package files exist, including the embedded `categories_config.json` used for extraction;
 - manifest and raw snapshot schema versions agree and are supported;
 - category-configuration provenance is present, structurally valid, fail-closed, and consistent between manifest and raw snapshot metadata;
 - every declared evidence hash matches the file on disk;
