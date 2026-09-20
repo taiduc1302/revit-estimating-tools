@@ -67,6 +67,8 @@ def run_doctor(target):
 
     if not os.path.isfile(os.path.join(runtime_lib, "__init__.py")):
         findings.append(finding("EXTENSION_RUNTIME_MISSING", "Self-contained extension runtime lib/revit_estimating is missing."))
+    if not os.path.isfile(os.path.join(extension, "LICENSE")):
+        findings.append(finding("EXTENSION_LICENSE_MISSING", "Deployable extension is missing its license notice."))
     if repository_root is not None:
         if os.path.isdir(os.path.join(repository_root, "lib", "revit_estimating")) or os.path.isfile(os.path.join(repository_root, "config", "categories.json")):
             findings.append(finding("LEGACY_RUNTIME_DUPLICATE", "Legacy repository-level runtime/config duplicates must not exist; the extension is the single runtime source of truth."))
