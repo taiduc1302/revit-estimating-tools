@@ -2,6 +2,8 @@
 """Estimating-focused model audit rules."""
 from __future__ import absolute_import, print_function
 
+import json
+
 from .config import spec_by_name
 from .hashing import sha256_text
 from .utils import to_text, is_number
@@ -11,8 +13,14 @@ MATERIAL_EXPECTED = set(["Pipes", "Conduits", "Cable Trays", "Ducts", "Structura
 
 def _issue(rule_id, severity, message, element=None, source_document=None, values=None):
     element = element or {}
+    values = values or {}
     element_key = element.get("element_key")
-    identity = "%s|%s|%s" % (rule_id, element_key or "MODEL", message)
+    source = source_document or element.get("source_document")
+    try:
+        values_identity = json.dumps(values, ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":"))
+    except (TypeError, ValueError):
+        values_identity = to_text(values)
+    identity = "%s|%s|%s|%s|%s" % (rule_id, element_key or "MODEL", source or "", message, values_identity)
     return {
         "issue_id": sha256_text(identity)[:16],
         "rule_id": rule_id,
@@ -20,7 +28,7 @@ def _issue(rule_id, severity, message, element=None, source_document=None, value
         "element_key": element_key,
         "element_id": element.get("element_id"),
         "unique_id": element.get("unique_id"),
-        "source_document": source_document or element.get("source_document"),
+        "source_document": source,
         "category": element.get("category"),
         "message": message,
         "values": values or {},
