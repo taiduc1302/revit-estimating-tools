@@ -8,7 +8,7 @@ From the repository root:
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs the dependency-free suite on supported Python versions, compiles core/tests/tools, and executes a golden revision comparison through the offline CLI.
+GitHub Actions runs the dependency-free suite on supported Python versions, compiles the extension runtime/tests/tools, executes a golden revision comparison, builds the self-contained extension ZIP, and runs a synthetic comparison benchmark.
 
 ## Golden fixtures
 
@@ -28,9 +28,11 @@ Expected summary: 1 added, 1 removed, 1 modified, 0 possible-recreated, 1 unchan
 python tools/revit_estimating.py compare tests/fixtures/baseline_snapshot.json tests/fixtures/current_snapshot.json --output .ci-output --allow-standalone
 python tools/revit_estimating.py validate <snapshot-folder>
 python tools/revit_estimating.py package <snapshot-folder>
+python tools/revit_estimating.py doctor RevitEstimating.extension
+python tools/revit_estimating.py build-extension --output .ci-output/RevitEstimating.extension.zip --json
 ```
 
-Comparison must fail on unsupported/missing schema versions, duplicate element keys, and invalid/orphaned snapshot packages. The golden JSON fixtures are intentionally standalone, so their CLI regression command uses the explicit `--allow-standalone` development override. Snapshot validation must also reject derived CSV drift even when its manifest hash was recomputed, verify the embedded `categories_config.json` against extraction provenance, and keep malformed evidence as findings rather than uncaught exceptions. Comparison validation must regenerate its CSV evidence from `revision_diff.json` and, when the original inputs remain available, recompute the full diff from baseline/current snapshots. Packaging must fail if snapshot integrity validation reports any finding.
+Comparison must fail on unsupported/missing schema versions, duplicate element keys, and invalid/orphaned snapshot packages. The golden JSON fixtures are intentionally standalone, so their CLI regression command uses the explicit `--allow-standalone` development override. Snapshot validation must also reject derived CSV drift even when its manifest hash was recomputed, verify the embedded `categories_config.json` against extraction provenance, and keep malformed evidence as findings rather than uncaught exceptions. Comparison validation must regenerate its CSV evidence from `revision_diff.json` and, when the original inputs remain available, recompute the full diff from baseline/current snapshots. Packaging must fail if snapshot integrity validation reports any finding. Installability tests copy only `RevitEstimating.extension` to a temporary directory, require standalone doctor success, import the copied runtime/config without repository neighbors, and verify that repeated deterministic ZIP builds have the same SHA-256.
 
 ## Live Revit validation checklist
 
