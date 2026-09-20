@@ -52,6 +52,8 @@ All notable changes to this project will be documented here.
 - CLI package output is blocked from overwriting snapshot evidence files.
 - Recreated-element inference is bounded per scope/category bucket; oversized candidate sets are skipped with an explicit warning instead of performing unbounded quadratic matching.
 - Revision comparison validation reconciles summary counts and baseline/current totals against detailed result groups, including when original input-file checks are skipped.
+- Linked-model scope changes emit explicit warnings, including a HIGH warning when the same link evidence appears under a different instance identity.
+- Offline synthetic comparison benchmarking is available and exercised in CI to guard against performance regressions.
 - Snapshot CSV review evidence is recomputed from `raw_snapshot.json` during validation, and comparison CSVs are recomputed from `revision_diff.json`.
 - When recorded comparison inputs are available, `revision_diff.json` is recomputed from baseline/current snapshots and must match.
 - Project-name mismatch warnings provide a wrong-project fallback when Revit Project Number is blank or unavailable.
