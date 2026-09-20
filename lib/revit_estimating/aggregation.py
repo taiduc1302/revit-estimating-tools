@@ -30,7 +30,7 @@ def aggregate_primary_quantities(elements):
             continue
         value = element.get("primary_quantity_value")
         unit = element.get("primary_quantity_unit")
-        if not unit or not is_number(value):
+        if not unit or not is_number(value) or float(value) <= 0:
             continue
         key = aggregation_key(element)
         row = groups.setdefault(key, {"quantity": 0.0, "element_count": 0})
@@ -70,7 +70,7 @@ def _revision_aggregate(elements):
             continue
         value = element.get("primary_quantity_value")
         unit = element.get("primary_quantity_unit")
-        if not unit or not is_number(value):
+        if not unit or not is_number(value) or float(value) <= 0:
             continue
         key = _revision_aggregation_key(element)
         row = groups.setdefault(key, {
