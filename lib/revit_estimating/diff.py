@@ -124,13 +124,27 @@ def _unambiguous_best(candidates, threshold, ambiguity_gap):
     return best_score, best
 
 
+def _candidate_bucket(element):
+    linked = bool(element.get("is_linked"))
+    scope = to_text(element.get("source_scope_key")).strip()
+    if not scope and linked:
+        link_uid = to_text(element.get("link_instance_unique_id")).strip()
+        if link_uid:
+            scope = "LINK:%s" % link_uid
+    return linked, scope, to_text(element.get("category")).strip().lower()
+
+
 def _infer_recreated(removed, added, threshold=0.75, ambiguity_gap=0.10):
     """Return only reciprocal, unambiguous best matches to avoid greedy false positives."""
+    added_by_bucket = {}
+    for new in added:
+        added_by_bucket.setdefault(_candidate_bucket(new), []).append(new)
+
     old_candidates = {}
     new_candidates = {}
     for old in removed:
         old_key = old.get("element_key")
-        for new in added:
+        for new in added_by_bucket.get(_candidate_bucket(old), []):
             score = similarity_score(old, new)
             if score <= 0:
                 continue
