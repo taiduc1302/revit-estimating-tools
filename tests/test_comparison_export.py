@@ -109,6 +109,7 @@ class ComparisonExportTests(unittest.TestCase):
         manifest = read_json(manifest_path)
 
         result["summary"]["ADDED"] = result["summary"]["ADDED"] + 5
+        result["summary"]["CURRENT_ELEMENTS"] = result["summary"]["CURRENT_ELEMENTS"] + 5
         manifest["summary"] = dict(result["summary"])
         write_json(result_path, result)
         manifest["evidence_hashes"]["revision_diff.json"] = sha256_file(result_path)
