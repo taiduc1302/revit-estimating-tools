@@ -24,7 +24,7 @@ def sanitize_filename(value, default="Model"):
 
 
 def canonical_json(data, pretty=True):
-    text = json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2 if pretty else None, separators=None if pretty else (",", ":"))
+    text = json.dumps(data, ensure_ascii=False, sort_keys=True, allow_nan=False, indent=2 if pretty else None, separators=None if pretty else (",", ":"))
     return to_text(text) + u"\n"
 
 
