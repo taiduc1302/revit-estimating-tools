@@ -52,7 +52,7 @@ Comparison manifests record both the SHA-256 of each raw input and its `package_
 
 `MODIFIED` includes selected classification, phase, workset, representative location, physical size, normalized quantity, aggregation status, and estimating-parameter changes.
 
-`POSSIBLE_RECREATED` is inferred, never authoritative, and inferred matches are constrained to the same logical model/link scope. A pair is emitted only when baseline and current elements are reciprocal, unambiguous best candidates above the configured confidence threshold.
+`POSSIBLE_RECREATED` is inferred, never authoritative, and inferred matches are constrained to the same logical model/link scope. A pair is emitted only when baseline and current elements are reciprocal, unambiguous best candidates above the configured confidence threshold. To prevent pathological quadratic work on large revisions, inference is skipped for any single scope/category bucket exceeding 250,000 candidate pairs; those elements remain explicit `ADDED`/`REMOVED` records and the comparison emits `RECREATED_MATCH_SKIPPED_LARGE_BUCKET`.
 
 Comparison may also emit warnings. `PROJECT_NUMBER_MISMATCH` is HIGH severity when both snapshots have non-empty Revit Project Number values and those values differ. When project numbers do not establish identity, differing non-empty Revit Project Name values emit `PROJECT_NAME_MISMATCH` (HIGH when project numbers are blank/unavailable, MEDIUM when the same populated project number is present on both snapshots).
 
