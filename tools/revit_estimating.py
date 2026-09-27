@@ -262,26 +262,22 @@ def _live_validation_checks():
     ]
 
 
-def live_validation_template_command(args):
-    extension = os.path.abspath(args.extension)
-    findings = run_doctor(extension)
-    if findings:
-        return _report_validation(findings, "standalone extension before live validation", args.json_output)
-
+def _live_validation_payload(extension, commit="", workflow_run="", artifact_id="", zip_sha256=""):
+    extension = os.path.abspath(extension)
     deployment_manifest = os.path.join(extension, "deployment_manifest.json")
     extension_manifest = os.path.join(extension, "extension.json")
     categories = os.path.join(extension, "config", "categories.json")
-    payload = {
+    return {
         "schema_version": SCHEMA_VERSION,
         "tool": "Revit Estimating Tools",
         "tool_version": __version__,
         "status": "LIVE_VALIDATION_INCOMPLETE",
         "deployment": {
             "extension_path": extension,
-            "source_commit": args.commit or "",
-            "workflow_run": args.workflow_run or "",
-            "artifact_id": args.artifact_id or "",
-            "deployment_zip_sha256": args.zip_sha256 or "",
+            "source_commit": commit or "",
+            "workflow_run": workflow_run or "",
+            "artifact_id": artifact_id or "",
+            "deployment_zip_sha256": zip_sha256 or "",
             "extension_manifest_sha256": sha256_file(extension_manifest),
             "deployment_manifest_sha256": sha256_file(deployment_manifest) if os.path.isfile(deployment_manifest) else "",
             "categories_config_sha256": sha256_file(categories),
@@ -308,6 +304,21 @@ def live_validation_template_command(args):
             "reviewed_at": "",
         },
     }
+
+
+def live_validation_template_command(args):
+    extension = os.path.abspath(args.extension)
+    findings = run_doctor(extension)
+    if findings:
+        return _report_validation(findings, "standalone extension before live validation", args.json_output)
+
+    payload = _live_validation_payload(
+        extension,
+        commit=args.commit,
+        workflow_run=args.workflow_run,
+        artifact_id=args.artifact_id,
+        zip_sha256=args.zip_sha256,
+    )
 
     output_path = os.path.abspath(args.output or os.path.join(os.getcwd(), "live_validation_report.json"))
     output_dir = os.path.dirname(output_path)
@@ -380,6 +391,101 @@ def validate_live_report_command(args):
     return 0 if passed else 1
 
 
+def _deterministic_zip_write(archive, name, data):
+    info = zipfile.ZipInfo(name.replace("\\", "/"), (1980, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.external_attr = 0o644 << 16
+    archive.writestr(info, data)
+
+
+def build_live_validation_kit_command(args):
+    extension = os.path.abspath(args.extension)
+    findings = run_doctor(extension)
+    if findings:
+        return _report_validation(findings, "standalone extension before live validation", args.json_output)
+
+    deployment_zip = os.path.abspath(args.deployment_zip)
+    if not os.path.isfile(deployment_zip):
+        message = "Deployment ZIP not found: %s" % deployment_zip
+        if args.json_output:
+            print_json({"passed": False, "error": message})
+        else:
+            print("FAIL: %s" % message)
+        return 1
+
+    deployment_sha = sha256_file(deployment_zip)
+    report = _live_validation_payload(
+        extension,
+        commit=args.commit,
+        workflow_run=args.workflow_run,
+        artifact_id=args.artifact_id,
+        zip_sha256=deployment_sha,
+    )
+    report_text = json.dumps(report, indent=2, sort_keys=True) + "\n"
+
+    release_checklist = os.path.join(ROOT, "docs", "RELEASE_CHECKLIST.md")
+    testing_doc = os.path.join(ROOT, "docs", "TESTING.md")
+    readme_text = (
+        "# Revit Estimating Tools — Live Validation Kit\n\n"
+        "This kit is for the first controlled Autodesk Revit/pyRevit validation.\n\n"
+        "1. Verify SHA256SUMS.txt.\n"
+        "2. Extract RevitEstimating.extension.zip.\n"
+        "3. Run standalone doctor against the extracted RevitEstimating.extension folder.\n"
+        "4. Install the extension with install.ps1 (or your approved pyRevit extension deployment process).\n"
+        "5. Fill live_validation_report.json while completing the live checks.\n"
+        "6. Run validate-live-report before changing LIVE_REVIT_VALIDATED or PRODUCTION_READY.\n\n"
+        "Do not create a release tag while live validation is incomplete.\n"
+    )
+
+    with open(deployment_zip, "rb") as stream:
+        deployment_bytes = stream.read()
+    with open(release_checklist, "rb") as stream:
+        checklist_bytes = stream.read()
+    with open(testing_doc, "rb") as stream:
+        testing_bytes = stream.read()
+
+    checksums = [
+        "%s  RevitEstimating.extension.zip" % deployment_sha,
+    ]
+    kit_files = {
+        "README_LIVE_VALIDATION.md": readme_text.encode("utf-8"),
+        "RevitEstimating.extension.zip": deployment_bytes,
+        "live_validation_report.json": report_text.encode("utf-8"),
+        "docs/RELEASE_CHECKLIST.md": checklist_bytes,
+        "docs/TESTING.md": testing_bytes,
+    }
+    for name in sorted(kit_files):
+        if name == "RevitEstimating.extension.zip":
+            continue
+        import hashlib
+        digest = hashlib.sha256(kit_files[name]).hexdigest()
+        checksums.append("%s  %s" % (digest, name))
+    kit_files["SHA256SUMS.txt"] = ("\n".join(checksums) + "\n").encode("utf-8")
+
+    output_path = os.path.abspath(args.output or os.path.join(ROOT, "dist", "RevitEstimating-live-validation-kit.zip"))
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name in sorted(kit_files):
+            _deterministic_zip_write(archive, name, kit_files[name])
+
+    payload = {
+        "passed": True,
+        "package": output_path,
+        "sha256": sha256_file(output_path),
+        "deployment_zip_sha256": deployment_sha,
+        "file_count": len(kit_files),
+    }
+    if args.json_output:
+        print_json(payload)
+    else:
+        print("PASS: live validation kit created at %s" % output_path)
+        print("SHA-256: %s" % payload["sha256"])
+        print("Deployment ZIP SHA-256: %s" % deployment_sha)
+    return 0
+
+
 def package_command(args):
     try:
         path = create_estimating_package(args.folder, output_path=args.output)
@@ -450,6 +556,16 @@ def build_parser():
     live_validate.add_argument("report")
     live_validate.add_argument("--json", action="store_true", dest="json_output")
     live_validate.set_defaults(handler=validate_live_report_command)
+
+    live_kit = commands.add_parser("build-live-kit", help="Build a deterministic live Revit validation handoff kit.")
+    live_kit.add_argument("--extension", default=os.path.join(ROOT, "RevitEstimating.extension"))
+    live_kit.add_argument("--deployment-zip", required=True)
+    live_kit.add_argument("--output")
+    live_kit.add_argument("--commit")
+    live_kit.add_argument("--workflow-run")
+    live_kit.add_argument("--artifact-id")
+    live_kit.add_argument("--json", action="store_true", dest="json_output")
+    live_kit.set_defaults(handler=build_live_validation_kit_command)
 
     package = commands.add_parser("package", help="Create a ZIP from a valid snapshot package.")
     package.add_argument("folder")
