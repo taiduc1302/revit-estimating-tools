@@ -36,7 +36,43 @@ Copy or symlink the complete `RevitEstimating.extension` folder into any directo
 
 Do not copy only `Estimating.tab`. The extension-local `lib/`, `config/`, and `extension.json` are required.
 
-## Option C — build a deterministic deployment ZIP
+## Option C — install the extracted CI package with PowerShell
+
+The built extension contains `install.ps1`. From inside the extracted `RevitEstimating.extension` folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+The default target is:
+
+```text
+%APPDATA%\pyRevit\Extensions\RevitEstimating.extension
+```
+
+Use an explicit pyRevit extension root when needed:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -TargetRoot "C:\Path\To\Extensions"
+```
+
+The installer validates `deployment_manifest.json` when present, backs up an existing installation before replacing it, copies the complete extension, then validates the installed copy again.
+
+Preview without making changes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
+```
+
+Safe uninstall preserves the installed folder instead of deleting it:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Uninstall
+```
+
+The removed installation is renamed to `RevitEstimating.extension.uninstalled-<timestamp>` under the same extension root.
+
+## Option D — build a deterministic deployment ZIP
 
 From the repository root:
 
