@@ -38,6 +38,22 @@ class InstallabilityTests(unittest.TestCase):
         findings = run_doctor(target)
         self.assertTrue(validation_passed(findings), findings)
 
+    def test_doctor_rejects_network_process_and_dynamic_execution(self):
+        target = self._copy_extension()
+        unsafe = os.path.join(target, "lib", "unsafe_contract_probe.py")
+        cases = (
+            ("NETWORK_ACCESS_DETECTED", "import requests\n"),
+            ("EXTERNAL_PROCESS_DETECTED", "import subprocess\n"),
+            ("DYNAMIC_EXECUTION_DETECTED", "value = eval('1 + 1')\n"),
+        )
+        for expected, source in cases:
+            with self.subTest(expected=expected):
+                with open(unsafe, "w") as stream:
+                    stream.write(source)
+                codes = set(item.get("code") for item in run_doctor(target))
+                self.assertIn(expected, codes)
+        os.remove(unsafe)
+
     def test_deployable_license_matches_repository_license(self):
         with open(os.path.join(ROOT, "LICENSE"), "rb") as stream:
             repository_license = stream.read()
