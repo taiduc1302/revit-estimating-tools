@@ -57,6 +57,7 @@ All notable changes to this project will be documented here.
 - Offline synthetic comparison benchmarking is available and exercised in CI to guard against performance regressions.
 - Built deployment ZIPs include a deterministic `deployment_manifest.json` with SHA-256 for every runtime file; standalone doctor detects changed, missing, or undeclared deployed files.
 - CI retains the Python 3.12 verified deployment ZIP as a 30-day GitHub Actions artifact for live-validation handoff.
+- CI also builds a deterministic live-validation kit containing the exact deployment ZIP, SHA256SUMS, prefilled validation report, release checklist, and testing runbook.
 - Built deployments include a Windows PowerShell installer that verifies deployment hashes, backs up an existing extension before replacement, and performs non-destructive uninstall rollback.
 - Ribbon commands now rely on pyRevit's native extension-local `lib/` path; repository-level runtime/config copies and manual `sys.path` injection were removed.
 - `doctor` can validate either the full repository or a standalone copied `.extension` folder, and CI verifies deterministic extension packaging.
