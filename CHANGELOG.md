@@ -58,6 +58,7 @@ All notable changes to this project will be documented here.
 - Built deployment ZIPs include a deterministic `deployment_manifest.json` with SHA-256 for every runtime file; standalone doctor detects changed, missing, or undeclared deployed files.
 - CI retains the Python 3.12 verified deployment ZIP as a 30-day GitHub Actions artifact for live-validation handoff.
 - CI also builds a deterministic live-validation kit containing the exact deployment ZIP, SHA256SUMS, prefilled validation report, release checklist, and testing runbook.
+- Completed live-validation reports must be checked against the actual installed/extracted extension; doctor and deployment/config/manifest hashes must match before the live gate is accepted.
 - Standalone doctor enforces the V0.1 offline security contract by rejecting deployable Python that introduces network clients, external process spawning, or dynamic execution.
 - Added `SECURITY.md` and `docs/THREAT_MODEL.md` covering model integrity, evidence integrity, deployment integrity, privacy, and accepted trust limitations.
 - Built deployments include a Windows PowerShell installer that verifies deployment hashes, backs up an existing extension before replacement, and performs non-destructive uninstall rollback.
