@@ -2,6 +2,7 @@
 
 Initial audit date: 2026-09-16
 Follow-up hardening audit: 2026-09-19
+Deployment/security/governance hardening: 2026-09-27
 
 ## Status
 
@@ -160,6 +161,24 @@ A deterministic ZIP SHA-256 verifies the archive before extraction, but does not
 
 CI now uploads the Python 3.12 deterministic deployment ZIP as a 30-day GitHub Actions artifact. This allows the first live Revit test to use the exact package that passed the offline installability suite rather than a separately rebuilt copy.
 
+### Deployment needed a tested Windows install / rollback path
+
+The self-contained extension now includes `install.ps1`. It validates deployment hashes before and after installation, supports an explicit target root and dry-run, backs up any existing installation before replacement, and performs non-destructive uninstall by moving the installed extension to a timestamped rollback folder. CI exercises install, replacement backup, and uninstall on Windows PowerShell.
+
+### Live validation handoff could drift away from the tested artifact
+
+CI now produces a deterministic live-validation kit containing the exact deployment ZIP, `SHA256SUMS.txt`, a prefilled `live_validation_report.json`, the release checklist, and testing runbook. The report records commit/workflow/artifact/ZIP evidence and cannot claim live validation while checks remain pending or failed.
+
+A completed live-validation report must be revalidated against the actual installed/extracted extension with `validate-live-report --extension ...`. Standalone doctor must pass and the extension manifest, deployment manifest, and category-config hashes must match the report. A separate archival override exists only for later structure-only review and is not valid for release approval.
+
+### Deployable runtime security assumptions were not machine-enforced
+
+Standalone doctor now rejects deployable Python that introduces network clients, external process execution, or dynamic `eval`/`exec` behavior. The existing Revit transaction prohibition remains enforced. `SECURITY.md` and `docs/THREAT_MODEL.md` document model integrity, evidence integrity, deployment integrity, privacy boundaries, and accepted limitations.
+
+### Repository governance could allow a premature Ready-for-review state
+
+The active V0.1 PR is intentionally Draft while `LIVE_REVIT_VALIDATED=false`. Pull-request CI now fails if the PR is marked Ready before the live gate closes. `CONTRIBUTING.md` and the pull-request template preserve the read-only/offline/IronPython/fail-closed contribution contract for future changes.
+
 ## Controls verified by automated tests
 
 The automated suite covers or statically checks:
@@ -178,14 +197,18 @@ The automated suite covers or statically checks:
 - collision-safe output folders;
 - project-number mismatch warnings;
 - expected pyRevit button structure, clean-engine metadata, project-document context, default IronPython assumption, read-only transaction contract, no repository-path injection, and a static IronPython compatibility proxy;
-- standalone `.extension` doctor validation, malformed/double-nested path rejection, copied-runtime/config import, deployable-license parity, and deterministic deployment-ZIP SHA-256;
+- standalone `.extension` doctor validation, malformed/double-nested path rejection, copied-runtime/config import, deployable-license parity, deterministic deployment-ZIP SHA-256, deployment-manifest drift detection, and Windows install/backup/uninstall rollback;
 - fail-closed category configuration loading, caching, and SHA-256 provenance;
+- deterministic live-validation kit creation, report/deployment hash binding, and installed-extension verification for completed live reports;
+- deployable-runtime security contract checks for network access, external process execution, dynamic execution, and Revit write transactions;
+- Draft PR live-gate enforcement plus contribution/PR-template governance contracts;
+- synthetic 10k-element comparison benchmark coverage with a CI time ceiling;
 - spreadsheet-formula escaping for CSV review surfaces while preserving numeric values;
 - rejection of non-finite JSON values and exclusion of non-positive quantities from aggregate totals;
 - collision-resistant audit issue identities and HIGH severity for per-element extraction failures;
 - absence of the removed company-specific project name in governed source/docs/config/tool paths.
 
-The post-audit GitHub Actions matrix passed the offline doctor, dependency-free unit tests, golden CLI revision comparison, and bytecode compilation on Python 3.8, 3.11, and 3.12.
+The post-audit GitHub Actions matrix passed the Draft live-gate guard, offline doctor, dependency-free unit tests, golden CLI revision comparison, deterministic extension build, deterministic live-validation kit build, synthetic comparison benchmark, artifact upload, and bytecode compilation on Python 3.8, 3.11, and 3.12.
 
 ## Known limitations that remain after offline audit
 
@@ -213,9 +236,9 @@ A single `material` field is useful for estimating grouping but does not represe
 
 Location is a midpoint/point/bounding-box representative coordinate. It is useful for revision review and inferred matching, but it does not prove two element geometries are equivalent.
 
-### Large-model performance is not benchmarked yet
+### Live Revit extraction performance is not benchmarked yet
 
-The core algorithms are deterministic and dependency-light, but extraction and serialization have not been profiled on very large production models. Performance acceptance should be recorded during live validation.
+Core revision comparison now has a synthetic 10k-element CI benchmark and bounded recreated-element matching. That does not measure Autodesk Revit API collection, parameter access, linked-model traversal, or serialization UX on a large production RVT. Extraction time and memory/interaction behavior must still be recorded during live validation.
 
 ### Open-model source file hashing is intentionally not claimed
 
