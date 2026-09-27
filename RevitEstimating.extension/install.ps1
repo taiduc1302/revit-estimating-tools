@@ -71,7 +71,11 @@ function Test-DeploymentIntegrity {
     }
 
     $actualFiles = Get-ChildItem -LiteralPath $ExtensionPath -Recurse -File | ForEach-Object {
-        $_.FullName.Substring($ExtensionPath.Length).TrimStart("\","/").Replace("\","/")
+        $relative = $_.FullName.Substring($ExtensionPath.Length)
+        if ($relative.StartsWith("\") -or $relative.StartsWith("/")) {
+            $relative = $relative.Substring(1)
+        }
+        $relative.Replace("\","/")
     } | Where-Object {
         $_ -ne "deployment_manifest.json" -and
         $_ -notmatch "(^|/)__pycache__/" -and
