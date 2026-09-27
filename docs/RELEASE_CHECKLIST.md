@@ -8,6 +8,7 @@ Before any release candidate handoff:
 
 - [ ] PR CI is green on Python 3.8, 3.11, and 3.12.
 - [ ] Offline doctor passes.
+- [ ] Deployable Python passes the offline security contract: no network access, external process execution, dynamic eval/exec, or Revit write transactions.
 - [ ] Unit tests pass.
 - [ ] Golden revision comparison passes.
 - [ ] Self-contained extension ZIP builds deterministically.
