@@ -121,7 +121,7 @@ def _validate_security_contract(extension, findings):
             "from " + "urllib",
             "import " + "httplib",
             "from " + "httplib",
-            "system.net",
+            "system." + "net",
         )),
         ("EXTERNAL_PROCESS_DETECTED", (
             "import " + "subprocess",
