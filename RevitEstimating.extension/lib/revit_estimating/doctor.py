@@ -100,6 +100,55 @@ def _validate_deployment_manifest(extension, findings):
             findings.append(finding("DEPLOYMENT_FILE_HASH_MISMATCH", "Standalone deployment file does not match deployment manifest.", {"file": name, "declared": expected, "actual": actual}))
 
 
+def _deployable_python_files(extension):
+    files = []
+    for dirpath, dirnames, filenames in os.walk(extension):
+        dirnames[:] = sorted([name for name in dirnames if name != "__pycache__"])
+        for filename in sorted(filenames):
+            if filename.endswith(".py"):
+                files.append(os.path.join(dirpath, filename))
+    return sorted(files)
+
+
+def _validate_security_contract(extension, findings):
+    token_groups = (
+        ("NETWORK_ACCESS_DETECTED", (
+            "import " + "requests",
+            "from " + "requests",
+            "import " + "socket",
+            "from " + "socket",
+            "import " + "urllib",
+            "from " + "urllib",
+            "import " + "httplib",
+            "from " + "httplib",
+            "system.net",
+        )),
+        ("EXTERNAL_PROCESS_DETECTED", (
+            "import " + "subprocess",
+            "from " + "subprocess",
+            "os." + "system(",
+            "os." + "popen(",
+            "system.diagnostics." + "process",
+        )),
+        ("DYNAMIC_EXECUTION_DETECTED", (
+            "ev" + "al(",
+            "ex" + "ec(",
+            "__" + "import__(",
+        )),
+    )
+    for path in _deployable_python_files(extension):
+        text = _read_text(path).lower()
+        relative = os.path.relpath(path, extension).replace(os.sep, "/")
+        for code, tokens in token_groups:
+            for token in tokens:
+                if token.lower() in text:
+                    findings.append(finding(
+                        code,
+                        "Deployable V0.1 runtime violates the offline/read-only security contract.",
+                        {"file": relative, "token": token},
+                    ))
+
+
 def run_doctor(target):
     """Validate a repository checkout or standalone .extension folder without Revit."""
     findings = []
@@ -131,6 +180,7 @@ def run_doctor(target):
             findings.append(finding("LEGACY_RUNTIME_DUPLICATE", "Legacy repository-level runtime/config duplicates must not exist; the extension is the single runtime source of truth."))
 
     _validate_deployment_manifest(extension, findings)
+    _validate_security_contract(extension, findings)
 
     if not os.path.isfile(manifest_path):
         findings.append(finding("EXTENSION_MANIFEST_MISSING", "extension.json is missing."))
