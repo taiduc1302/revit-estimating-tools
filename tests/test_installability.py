@@ -167,6 +167,46 @@ class InstallabilityTests(unittest.TestCase):
         codes = set(item.get("code") for item in run_doctor(extension))
         self.assertIn("DEPLOYMENT_FILE_UNDECLARED", codes)
 
+    @unittest.skipUnless(os.name == "nt" and shutil.which("powershell.exe"), "Windows PowerShell required")
+    def test_windows_installer_install_backup_and_uninstall(self):
+        package = os.path.join(self.root, "extension.zip")
+        subprocess.check_output([
+            sys.executable, CLI, "build-extension", "--output", package, "--json"
+        ], cwd=ROOT)
+        extracted_root = os.path.join(self.root, "installer-source")
+        os.makedirs(extracted_root)
+        with zipfile.ZipFile(package, "r") as archive:
+            archive.extractall(extracted_root)
+
+        extension = os.path.join(extracted_root, "RevitEstimating.extension")
+        installer = os.path.join(extension, "install.ps1")
+        target_root = os.path.join(self.root, "pyrevit-extensions")
+        destination = os.path.join(target_root, "RevitEstimating.extension")
+        base_command = [
+            "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+            "-File", installer, "-TargetRoot", target_root,
+        ]
+
+        subprocess.check_call(base_command, cwd=extracted_root)
+        self.assertTrue(os.path.isfile(os.path.join(destination, "extension.json")))
+        self.assertTrue(validation_passed(run_doctor(destination)))
+
+        subprocess.check_call(base_command, cwd=extracted_root)
+        backups = [
+            name for name in os.listdir(target_root)
+            if name.startswith("RevitEstimating.extension.backup-")
+        ]
+        self.assertTrue(backups)
+        self.assertTrue(validation_passed(run_doctor(destination)))
+
+        subprocess.check_call(base_command + ["-Uninstall"], cwd=extracted_root)
+        self.assertFalse(os.path.exists(destination))
+        uninstalled = [
+            name for name in os.listdir(target_root)
+            if name.startswith("RevitEstimating.extension.uninstalled-")
+        ]
+        self.assertTrue(uninstalled)
+
 
 if __name__ == "__main__":
     unittest.main()
