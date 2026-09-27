@@ -53,4 +53,4 @@ Automated tests do not replace a Revit test. Before calling a release production
 13. linked elements never report link-local coordinates as host coordinates when transform resolution/application fails;
 14. no model dirty-state change is caused by the extension.
 
-Record Revit build, pyRevit version, model type and observed discrepancies for every live validation. Follow `docs/RELEASE_CHECKLIST.md`; no release tag is permitted while `LIVE_REVIT_VALIDATED=false`.
+Record Revit build, pyRevit version, model type and observed discrepancies for every live validation. Use `live-validation-template` to bind the test record to the exact deployment artifact, then run `validate-live-report` before release review. Follow `docs/RELEASE_CHECKLIST.md`; no release tag is permitted while `LIVE_REVIT_VALIDATED=false`.
