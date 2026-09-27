@@ -21,7 +21,7 @@ Before any release candidate handoff:
 
 ## Live Revit gate
 
-Prefer the CI artifact `RevitEstimating-live-validation-kit` for the first live test. It contains the exact deployment ZIP, `SHA256SUMS.txt`, a prefilled `live_validation_report.json`, this release checklist, and the testing runbook. After installation, update the report with the actual installed path/environment/model evidence and run `validate-live-report` before any release decision.
+Prefer the CI artifact `RevitEstimating-live-validation-kit` for the first live test. It contains the exact deployment ZIP, `SHA256SUMS.txt`, a prefilled `live_validation_report.json`, this release checklist, and the testing runbook. After installation, update the report with the actual installed path/environment/model/reviewer evidence and run `validate-live-report live_validation_report.json --extension <installed RevitEstimating.extension>` before any release decision. A completed report is rejected unless the installed extension passes doctor and its extension/config/deployment-manifest hashes match the report.
 
 Before opening Revit, create a `live_validation_report.json` from the exact installed extension with `live-validation-template`, recording commit SHA, workflow run, artifact ID, and inner deployment ZIP SHA-256. Keep the report with the live-test evidence and run `validate-live-report` before any release decision.
 
