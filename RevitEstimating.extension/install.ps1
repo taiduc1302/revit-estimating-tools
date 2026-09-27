@@ -42,6 +42,7 @@ function Get-Sha256 {
 function Test-DeploymentIntegrity {
     param([string]$ExtensionPath)
 
+    $ExtensionPath = (Get-Item -LiteralPath $ExtensionPath).FullName.TrimEnd("\","/")
     $manifestPath = Join-Path $ExtensionPath "deployment_manifest.json"
     if (-not (Test-Path $manifestPath)) {
         Write-Warning "deployment_manifest.json is absent. File-hash verification was skipped."
