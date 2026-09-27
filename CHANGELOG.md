@@ -62,6 +62,7 @@ All notable changes to this project will be documented here.
 - Standalone doctor enforces the V0.1 offline security contract by rejecting deployable Python that introduces network clients, external process spawning, or dynamic execution.
 - Added `SECURITY.md` and `docs/THREAT_MODEL.md` covering model integrity, evidence integrity, deployment integrity, privacy, and accepted trust limitations.
 - Added `CONTRIBUTING.md` and a guarded pull-request template that require the V0.1 read-only/offline/IronPython/fail-closed contracts and live-validation evidence for Revit-dependent changes.
+- Pull-request CI now fails if a PR is marked Ready while `LIVE_REVIT_VALIDATED=false`; V0.1 stays Draft until the live Revit gate is closed.
 - Built deployments include a Windows PowerShell installer that verifies deployment hashes, backs up an existing extension before replacement, and performs non-destructive uninstall rollback.
 - Ribbon commands now rely on pyRevit's native extension-local `lib/` path; repository-level runtime/config copies and manual `sys.path` injection were removed.
 - `doctor` can validate either the full repository or a standalone copied `.extension` folder, and CI verifies deterministic extension packaging.
