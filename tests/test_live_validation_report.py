@@ -33,6 +33,27 @@ class LiveValidationReportTests(unittest.TestCase):
         self.assertTrue(payload.get("passed"), payload)
         return deployment, payload
 
+    def _create_deployed(self):
+        deployment, deployment_payload = self._build_deployment()
+        extracted = os.path.join(self.root, "deployed")
+        os.makedirs(extracted)
+        with zipfile.ZipFile(deployment, "r") as archive:
+            archive.extractall(extracted)
+        extension = os.path.join(extracted, "RevitEstimating.extension")
+        raw = subprocess.check_output([
+            sys.executable, CLI, "live-validation-template",
+            "--extension", extension,
+            "--output", self.report,
+            "--commit", "abc123",
+            "--workflow-run", "999",
+            "--artifact-id", "12345",
+            "--zip-sha256", deployment_payload["sha256"],
+            "--json",
+        ], cwd=ROOT)
+        payload = json.loads(raw.decode("utf-8"))
+        self.assertTrue(payload.get("passed"), payload)
+        return json.load(open(self.report, "r")), extension
+
     def _create(self):
         raw = subprocess.check_output([
             sys.executable, CLI, "live-validation-template",
@@ -77,20 +98,54 @@ class LiveValidationReportTests(unittest.TestCase):
         ], cwd=ROOT)
         self.assertEqual(code, 1)
 
-    def test_completed_report_requires_environment_and_deployment_evidence(self):
-        data = self._create()
+    def _complete_live_report(self):
+        data, extension = self._create_deployed()
         for item in data["checks"]:
             item["status"] = "PASS"
         data["final"]["live_revit_validated"] = True
+        data["final"]["reviewer"] = "Estimator"
+        data["final"]["reviewed_at"] = "2026-09-27T12:00:00Z"
         data["environment"]["revit_build"] = "2026-test"
         data["environment"]["pyrevit_version"] = "6.5.x"
         data["environment"]["pyrevit_engine"] = "IronPython"
+        data["environment"]["windows_version"] = "Windows test"
+        data["model"]["name"] = "Representative Test Model"
+        data["model"]["type"] = "Controlled validation model"
         with open(self.report, "w") as stream:
             json.dump(data, stream, indent=2, sort_keys=True)
+        return data, extension
+
+    def test_completed_report_requires_installed_extension_verification(self):
+        data, extension = self._complete_live_report()
+        self.assertTrue(data["deployment"]["deployment_manifest_sha256"])
+
         code = subprocess.call([
             sys.executable, CLI, "validate-live-report", self.report, "--json"
         ], cwd=ROOT)
+        self.assertEqual(code, 1)
+
+        code = subprocess.call([
+            sys.executable, CLI, "validate-live-report", self.report,
+            "--extension", extension, "--json"
+        ], cwd=ROOT)
         self.assertEqual(code, 0)
+
+        archival_code = subprocess.call([
+            sys.executable, CLI, "validate-live-report", self.report,
+            "--skip-installed-extension", "--json"
+        ], cwd=ROOT)
+        self.assertEqual(archival_code, 0)
+
+    def test_completed_report_detects_installed_extension_drift(self):
+        _, extension = self._complete_live_report()
+        categories = os.path.join(extension, "config", "categories.json")
+        with open(categories, "a") as stream:
+            stream.write("\n")
+        code = subprocess.call([
+            sys.executable, CLI, "validate-live-report", self.report,
+            "--extension", extension, "--json"
+        ], cwd=ROOT)
+        self.assertEqual(code, 1)
 
     def test_live_validation_kit_is_deterministic_and_complete(self):
         deployment, deployment_payload = self._build_deployment()
