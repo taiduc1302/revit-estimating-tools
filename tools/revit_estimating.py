@@ -489,7 +489,7 @@ def build_live_validation_kit_command(args):
         "3. Run standalone doctor against the extracted RevitEstimating.extension folder.\n"
         "4. Install the extension with install.ps1 (or your approved pyRevit extension deployment process).\n"
         "5. Fill live_validation_report.json while completing the live checks.\n"
-        "6. Run validate-live-report before changing LIVE_REVIT_VALIDATED or PRODUCTION_READY.\n\n"
+        "6. Run validate-live-report live_validation_report.json --extension <installed RevitEstimating.extension> before changing LIVE_REVIT_VALIDATED or PRODUCTION_READY.\n\n"
         "Do not create a release tag while live validation is incomplete.\n"
     )
 
