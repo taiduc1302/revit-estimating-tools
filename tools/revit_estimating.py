@@ -370,15 +370,52 @@ def validate_live_report_command(args):
         findings.append("production_ready cannot be true before live_revit_validated.")
     if final.get("live_revit_validated"):
         env = data.get("environment") or {}
-        required_env = ("revit_build", "pyrevit_version", "pyrevit_engine")
+        required_env = ("revit_build", "pyrevit_version", "pyrevit_engine", "windows_version")
         missing = [name for name in required_env if not str(env.get(name) or "").strip()]
         if missing:
             findings.append("Validated report is missing environment fields: %s" % ", ".join(missing))
+
         deployment = data.get("deployment") or {}
-        required_deployment = ("source_commit", "deployment_zip_sha256", "categories_config_sha256")
+        required_deployment = (
+            "source_commit", "workflow_run", "artifact_id", "deployment_zip_sha256",
+            "extension_manifest_sha256", "deployment_manifest_sha256", "categories_config_sha256",
+        )
         missing = [name for name in required_deployment if not str(deployment.get(name) or "").strip()]
         if missing:
             findings.append("Validated report is missing deployment evidence: %s" % ", ".join(missing))
+
+        model = data.get("model") or {}
+        required_model = ("name", "type")
+        missing = [name for name in required_model if not str(model.get(name) or "").strip()]
+        if missing:
+            findings.append("Validated report is missing model evidence: %s" % ", ".join(missing))
+
+        if not str(final.get("reviewer") or "").strip() or not str(final.get("reviewed_at") or "").strip():
+            findings.append("Validated report must record reviewer and reviewed_at.")
+
+        if not args.extension and not args.skip_installed_extension:
+            findings.append("Completed live validation must be checked against the installed extension with --extension.")
+
+    if args.extension:
+        extension = os.path.abspath(args.extension)
+        doctor_findings = run_doctor(extension)
+        if doctor_findings:
+            findings.append("Installed extension failed standalone doctor: %s" % ", ".join(sorted(set(item.get("code") for item in doctor_findings))))
+
+        deployment = data.get("deployment") or {}
+        evidence_paths = {
+            "extension_manifest_sha256": os.path.join(extension, "extension.json"),
+            "deployment_manifest_sha256": os.path.join(extension, "deployment_manifest.json"),
+            "categories_config_sha256": os.path.join(extension, "config", "categories.json"),
+        }
+        for field, path in evidence_paths.items():
+            expected = str(deployment.get(field) or "").strip().lower()
+            if not os.path.isfile(path):
+                findings.append("Installed extension is missing evidence file for %s." % field)
+                continue
+            actual = sha256_file(path).lower()
+            if not expected or actual != expected:
+                findings.append("Installed extension hash mismatch for %s." % field)
 
     passed = not findings
     if args.json_output:
@@ -572,6 +609,8 @@ def build_parser():
 
     live_validate = commands.add_parser("validate-live-report", help="Validate live Revit validation report consistency.")
     live_validate.add_argument("report")
+    live_validate.add_argument("--extension", help="Verify completed report evidence against this installed/extracted standalone extension.")
+    live_validate.add_argument("--skip-installed-extension", action="store_true", help="Allow archival structure-only validation of a completed report without the installed extension. Do not use for release approval.")
     live_validate.add_argument("--json", action="store_true", dest="json_output")
     live_validate.set_defaults(handler=validate_live_report_command)
 
