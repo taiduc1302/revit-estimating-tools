@@ -57,6 +57,7 @@ python tools/revit_estimating.py build-extension --output dist/RevitEstimating.e
 python tools/revit_estimating.py benchmark --elements 20000 --replacements 600 --json
 python tools/revit_estimating.py live-validation-template --extension RevitEstimating.extension --output live_validation_report.json --commit <sha> --workflow-run <run> --artifact-id <id> --zip-sha256 <sha256>
 python tools/revit_estimating.py validate-live-report live_validation_report.json --json
+python tools/revit_estimating.py build-live-kit --deployment-zip dist/RevitEstimating.extension.zip --output dist/RevitEstimating-live-validation-kit.zip --commit <sha> --workflow-run <run> --artifact-id <id> --json
 ```
 
 Add `--json` to any command for machine-readable output. Compare requires each `raw_snapshot.json` to remain inside an intact snapshot package whose manifest/evidence hashes validate. `--allow-standalone` is an explicit development/fixture escape hatch and should not be used for production evidence. `validate-comparison` checks generated comparison evidence and the exact baseline/current input hashes; add `--skip-input-files` when the original input files have intentionally been moved and only the generated comparison package should be verified.
