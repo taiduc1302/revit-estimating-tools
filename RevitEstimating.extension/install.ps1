@@ -21,6 +21,24 @@ function Get-UniqueSiblingPath {
     return $candidate
 }
 
+function Get-Sha256 {
+    param([string]$Path)
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $bytes = $sha.ComputeHash($stream)
+        }
+        finally {
+            $sha.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+    return ([System.BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+}
+
 function Test-DeploymentIntegrity {
     param([string]$ExtensionPath)
 
@@ -46,7 +64,7 @@ function Test-DeploymentIntegrity {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Deployment file missing: $relative"
         }
-        $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
+        $actual = Get-Sha256 -Path $path
         if ($actual -ne $declared[$relative].ToLowerInvariant()) {
             throw "Deployment file hash mismatch: $relative"
         }
