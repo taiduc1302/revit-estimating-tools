@@ -69,3 +69,4 @@ Only after the live gate passes:
 - LIVE_REVIT_VALIDATED: false
 - PRODUCTION_READY: false
 - Release tag permitted: no
+- PR ready-for-review permitted: no while `LIVE_REVIT_VALIDATED=false` (CI enforces Draft state on pull_request runs)
