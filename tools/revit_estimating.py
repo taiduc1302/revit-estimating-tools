@@ -244,6 +244,142 @@ def build_extension_command(args):
     return 0
 
 
+def _live_validation_checks():
+    return [
+        {"id": "PYREVIT_LOADS", "status": "PENDING", "notes": ""},
+        {"id": "IRONPYTHON_COMMANDS_LAUNCH", "status": "PENDING", "notes": ""},
+        {"id": "MODEL_REMAINS_CLEAN", "status": "PENDING", "notes": ""},
+        {"id": "HOST_EXTRACTION", "status": "PENDING", "notes": ""},
+        {"id": "LINK_DISCOVERY_AND_TRANSFORMS", "status": "PENDING", "notes": ""},
+        {"id": "UNLOADED_LINK_VISIBILITY", "status": "PENDING", "notes": ""},
+        {"id": "MEP_PARAMETER_RESOLUTION", "status": "PENDING", "notes": ""},
+        {"id": "WALL_FLOOR_AREA_RECONCILIATION", "status": "PENDING", "notes": ""},
+        {"id": "FOUNDATION_VOLUME_RECONCILIATION", "status": "PENDING", "notes": ""},
+        {"id": "STRUCTURAL_FRAMING_LENGTH_RECONCILIATION", "status": "PENDING", "notes": ""},
+        {"id": "SNAPSHOT_PACKAGE_VALIDATES", "status": "PENDING", "notes": ""},
+        {"id": "REVISION_COMPARISON_CONTROL_CASE", "status": "PENDING", "notes": ""},
+        {"id": "LARGE_MODEL_PERFORMANCE_RECORDED", "status": "PENDING", "notes": ""},
+    ]
+
+
+def live_validation_template_command(args):
+    extension = os.path.abspath(args.extension)
+    findings = run_doctor(extension)
+    if findings:
+        return _report_validation(findings, "standalone extension before live validation", args.json_output)
+
+    deployment_manifest = os.path.join(extension, "deployment_manifest.json")
+    extension_manifest = os.path.join(extension, "extension.json")
+    categories = os.path.join(extension, "config", "categories.json")
+    payload = {
+        "schema_version": SCHEMA_VERSION,
+        "tool": "Revit Estimating Tools",
+        "tool_version": __version__,
+        "status": "LIVE_VALIDATION_INCOMPLETE",
+        "deployment": {
+            "extension_path": extension,
+            "source_commit": args.commit or "",
+            "workflow_run": args.workflow_run or "",
+            "artifact_id": args.artifact_id or "",
+            "deployment_zip_sha256": args.zip_sha256 or "",
+            "extension_manifest_sha256": sha256_file(extension_manifest),
+            "deployment_manifest_sha256": sha256_file(deployment_manifest) if os.path.isfile(deployment_manifest) else "",
+            "categories_config_sha256": sha256_file(categories),
+        },
+        "environment": {
+            "revit_build": "",
+            "pyrevit_version": "",
+            "pyrevit_engine": "",
+            "windows_version": "",
+        },
+        "model": {
+            "name": "",
+            "type": "",
+            "element_count": None,
+            "linked_model_count": None,
+            "notes": "",
+        },
+        "checks": _live_validation_checks(),
+        "observations": [],
+        "final": {
+            "live_revit_validated": False,
+            "production_ready": False,
+            "reviewer": "",
+            "reviewed_at": "",
+        },
+    }
+
+    output_path = os.path.abspath(args.output or os.path.join(os.getcwd(), "live_validation_report.json"))
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    with open(output_path, "w") as stream:
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+
+    if args.json_output:
+        print_json({"passed": True, "report": output_path, "payload": payload})
+    else:
+        print("PASS: live validation template created at %s" % output_path)
+    return 0
+
+
+def validate_live_report_command(args):
+    try:
+        with open(args.report, "r") as stream:
+            data = json.load(stream)
+    except Exception as exc:
+        if args.json_output:
+            print_json({"passed": False, "error": str(exc)})
+        else:
+            print("FAIL: %s" % exc)
+        return 1
+
+    findings = []
+    if data.get("tool") != "Revit Estimating Tools":
+        findings.append("Unexpected tool identity.")
+    if data.get("tool_version") != __version__:
+        findings.append("Report tool_version does not match runtime version.")
+    checks = data.get("checks")
+    if not isinstance(checks, list) or not checks:
+        findings.append("checks must be a non-empty list.")
+    else:
+        valid = set(("PENDING", "PASS", "FAIL", "NOT_APPLICABLE"))
+        for item in checks:
+            if not isinstance(item, dict) or item.get("status") not in valid:
+                findings.append("Every check must use PENDING/PASS/FAIL/NOT_APPLICABLE.")
+                break
+
+    final = data.get("final") or {}
+    all_passed = bool(checks) and all(item.get("status") in ("PASS", "NOT_APPLICABLE") for item in checks)
+    if final.get("live_revit_validated") and not all_passed:
+        findings.append("live_revit_validated cannot be true while checks remain pending/failed.")
+    if final.get("production_ready") and not final.get("live_revit_validated"):
+        findings.append("production_ready cannot be true before live_revit_validated.")
+    if final.get("live_revit_validated"):
+        env = data.get("environment") or {}
+        required_env = ("revit_build", "pyrevit_version", "pyrevit_engine")
+        missing = [name for name in required_env if not str(env.get(name) or "").strip()]
+        if missing:
+            findings.append("Validated report is missing environment fields: %s" % ", ".join(missing))
+        deployment = data.get("deployment") or {}
+        required_deployment = ("source_commit", "deployment_zip_sha256", "categories_config_sha256")
+        missing = [name for name in required_deployment if not str(deployment.get(name) or "").strip()]
+        if missing:
+            findings.append("Validated report is missing deployment evidence: %s" % ", ".join(missing))
+
+    passed = not findings
+    if args.json_output:
+        print_json({"passed": passed, "findings": findings})
+    elif passed:
+        print("PASS: live validation report is internally consistent")
+    else:
+        print("FAIL: live validation report has %s finding(s)" % len(findings))
+        for item in findings:
+            print("- %s" % item)
+    return 0 if passed else 1
+
+
 def package_command(args):
     try:
         path = create_estimating_package(args.folder, output_path=args.output)
@@ -299,6 +435,21 @@ def build_parser():
     benchmark.add_argument("--max-seconds", type=float, default=None, help="Return failure if runtime exceeds this limit.")
     benchmark.add_argument("--json", action="store_true", dest="json_output")
     benchmark.set_defaults(handler=benchmark_command)
+
+    live_template = commands.add_parser("live-validation-template", help="Create a prefilled report for the first live Revit validation.")
+    live_template.add_argument("--extension", default=os.path.join(ROOT, "RevitEstimating.extension"))
+    live_template.add_argument("--output")
+    live_template.add_argument("--commit")
+    live_template.add_argument("--workflow-run")
+    live_template.add_argument("--artifact-id")
+    live_template.add_argument("--zip-sha256")
+    live_template.add_argument("--json", action="store_true", dest="json_output")
+    live_template.set_defaults(handler=live_validation_template_command)
+
+    live_validate = commands.add_parser("validate-live-report", help="Validate live Revit validation report consistency.")
+    live_validate.add_argument("report")
+    live_validate.add_argument("--json", action="store_true", dest="json_output")
+    live_validate.set_defaults(handler=validate_live_report_command)
 
     package = commands.add_parser("package", help="Create a ZIP from a valid snapshot package.")
     package.add_argument("folder")
