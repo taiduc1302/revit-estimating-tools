@@ -20,6 +20,8 @@ Before any release candidate handoff:
 
 ## Live Revit gate
 
+Before opening Revit, create a `live_validation_report.json` from the exact installed extension with `live-validation-template`, recording commit SHA, workflow run, artifact ID, and inner deployment ZIP SHA-256. Keep the report with the live-test evidence and run `validate-live-report` before any release decision.
+
 Complete Issue #2 on representative Autodesk Revit models:
 
 - [ ] pyRevit loads the extension and all four ribbon commands.
