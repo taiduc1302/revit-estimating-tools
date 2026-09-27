@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1",
+  "categories": [
+    {"name":"Pipes","bic":"OST_PipeCurves","primary_quantity":"LENGTH","requires_size":true,"requires_system":true},
+    {"name":"Pipe Fittings","bic":"OST_PipeFitting","primary_quantity":"COUNT"},
+    {"name":"Pipe Accessories","bic":"OST_PipeAccessory","primary_quantity":"COUNT"},
+    {"name":"Conduits","bic":"OST_Conduit","primary_quantity":"LENGTH","requires_size":true},
+    {"name":"Conduit Fittings","bic":"OST_ConduitFitting","primary_quantity":"COUNT"},
+    {"name":"Cable Trays","bic":"OST_CableTray","primary_quantity":"LENGTH","requires_size":true},
+    {"name":"Cable Tray Fittings","bic":"OST_CableTrayFitting","primary_quantity":"COUNT"},
+    {"name":"Ducts","bic":"OST_DuctCurves","primary_quantity":"LENGTH","requires_size":true,"requires_system":true},
+    {"name":"Duct Fittings","bic":"OST_DuctFitting","primary_quantity":"COUNT"},
+    {"name":"Mechanical Equipment","bic":"OST_MechanicalEquipment","primary_quantity":"COUNT"},
+    {"name":"Structural Foundations","bic":"OST_StructuralFoundation","primary_quantity":"VOLUME"},
+    {"name":"Structural Framing","bic":"OST_StructuralFraming","primary_quantity":"LENGTH"},
+    {"name":"Floors","bic":"OST_Floors","primary_quantity":"AREA"},
+    {"name":"Walls","bic":"OST_Walls","primary_quantity":"AREA"},
+    {"name":"Generic Models","bic":"OST_GenericModel","primary_quantity":"COUNT","audit_only":true}
+  ]
+}

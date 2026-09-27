@@ -1,0 +1,10 @@
+{
+  "schema_version": "0.1",
+  "metadata": {"project_name": "Golden Fixture", "model": {"host_document": "Golden_B.rvt"}},
+  "elements": [
+    {"element_key":"HOST:pipe-1","source_scope_key":"HOST","source_document":"Golden_B.rvt","is_linked":false,"unique_id":"pipe-1","category":"Pipes","family":"Pipe","type":"PVC 300","system":"Storm","material":"PVC","level":"Level 1","mark":"STM-1","size":{"diameter_mm":300.0,"size_text":"300 mm"},"location":{"x_m":1.0,"y_m":2.0,"z_m":0.0},"quantities":{"length_m":12.0},"primary_quantity_type":"LENGTH","primary_quantity_value":12.0,"primary_quantity_unit":"M"},
+    {"element_key":"HOST:floor-1","source_scope_key":"HOST","source_document":"Golden_B.rvt","is_linked":false,"unique_id":"floor-1","category":"Floors","family":"Floor","type":"Concrete Slab","material":"Concrete","level":"Level 1","mark":"F-1","size":{},"location":{"x_m":8.0,"y_m":8.0,"z_m":0.0},"quantities":{"area_m2":30.0},"primary_quantity_type":"AREA","primary_quantity_value":30.0,"primary_quantity_unit":"M2"},
+    {"element_key":"LINK:elec-link-1:conduit-1","source_scope_key":"LINK:elec-link-1","source_document":"Electrical.rvt","is_linked":true,"link_instance_unique_id":"elec-link-1","unique_id":"conduit-1","category":"Conduits","family":"Conduit","type":"EMT 50","material":"EMT","level":"Level 1","mark":"C-1","size":{"diameter_mm":50.0,"size_text":"50 mm"},"location":{"x_m":10.0,"y_m":1.0,"z_m":0.0},"quantities":{"length_m":15.0},"primary_quantity_type":"LENGTH","primary_quantity_value":15.0,"primary_quantity_unit":"M"}
+  ],
+  "audit_issues": []
+}

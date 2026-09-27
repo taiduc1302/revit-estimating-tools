@@ -1,0 +1,6 @@
+{
+  "name": "Revit Estimating Tools",
+  "description": "Read-only estimating utilities for Autodesk Revit built on pyRevit.",
+  "author": "Revit Estimating Tools contributors",
+  "url": "https://github.com/taiduc1302/revit-estimating-tools"
+}
