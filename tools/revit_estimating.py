@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -421,6 +422,24 @@ def build_live_validation_kit_command(args):
         artifact_id=args.artifact_id,
         zip_sha256=deployment_sha,
     )
+    report["deployment"]["extension_path"] = ""
+    with zipfile.ZipFile(deployment_zip, "r") as deployment_archive:
+        required_evidence = {
+            "extension_manifest_sha256": "RevitEstimating.extension/extension.json",
+            "deployment_manifest_sha256": "RevitEstimating.extension/deployment_manifest.json",
+            "categories_config_sha256": "RevitEstimating.extension/config/categories.json",
+        }
+        for field, member in required_evidence.items():
+            try:
+                data = deployment_archive.read(member)
+            except KeyError:
+                message = "Deployment ZIP is missing required live-validation evidence: %s" % member
+                if args.json_output:
+                    print_json({"passed": False, "error": message})
+                else:
+                    print("FAIL: %s" % message)
+                return 1
+            report["deployment"][field] = hashlib.sha256(data).hexdigest()
     report_text = json.dumps(report, indent=2, sort_keys=True) + "\n"
 
     release_checklist = os.path.join(ROOT, "docs", "RELEASE_CHECKLIST.md")
@@ -457,7 +476,6 @@ def build_live_validation_kit_command(args):
     for name in sorted(kit_files):
         if name == "RevitEstimating.extension.zip":
             continue
-        import hashlib
         digest = hashlib.sha256(kit_files[name]).hexdigest()
         checksums.append("%s  %s" % (digest, name))
     kit_files["SHA256SUMS.txt"] = ("\n".join(checksums) + "\n").encode("utf-8")
