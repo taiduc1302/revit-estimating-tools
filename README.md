@@ -18,8 +18,9 @@ The project deliberately does **not** modify Revit model data, price work, creat
 1. Install a compatible pyRevit 6.5.x release.
 2. Clone this repository to a local folder.
 3. Either add the repository root as a pyRevit custom extension search path **or** copy/symlink the single `RevitEstimating.extension` folder into any configured pyRevit extensions directory.
-4. Reload pyRevit.
-5. Open Revit and use the **Estimating** tab.
+4. For a built/extracted package on Windows, you can run `RevitEstimating.extension\\install.ps1`; it validates deployment hashes and backs up any existing installation before copying.
+5. Reload pyRevit.
+6. Open Revit and use the **Estimating** tab.
 
 `RevitEstimating.extension` is self-contained: its runtime package lives under `lib/revit_estimating` and its governed category configuration lives under `config/categories.json`. No repository-level `lib` or `config` folder is required after deployment. Model Audit and Extract Snapshot fail closed if the embedded category config is missing, malformed, schema-incompatible, or internally inconsistent.
 
