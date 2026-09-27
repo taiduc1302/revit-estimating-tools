@@ -45,6 +45,15 @@ class ReleaseContractTests(unittest.TestCase):
         for text in required:
             self.assertIn(text, content)
 
+    def test_ci_keeps_pr_draft_while_live_gate_is_open(self):
+        workflow_path = os.path.join(ROOT, ".github", "workflows", "tests.yml")
+        with open(workflow_path, "r") as stream:
+            workflow = stream.read()
+        self.assertIn("Enforce draft before live Revit validation", workflow)
+        self.assertIn("PR_DRAFT", workflow)
+        self.assertIn("LIVE_REVIT_VALIDATED", workflow)
+        self.assertIn("Issue #2", workflow)
+
     def test_contribution_and_pr_templates_preserve_v01_invariants(self):
         contributing_path = os.path.join(ROOT, "CONTRIBUTING.md")
         template_path = os.path.join(ROOT, ".github", "PULL_REQUEST_TEMPLATE.md")
