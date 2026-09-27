@@ -45,6 +45,34 @@ class ReleaseContractTests(unittest.TestCase):
         for text in required:
             self.assertIn(text, content)
 
+    def test_contribution_and_pr_templates_preserve_v01_invariants(self):
+        contributing_path = os.path.join(ROOT, "CONTRIBUTING.md")
+        template_path = os.path.join(ROOT, ".github", "PULL_REQUEST_TEMPLATE.md")
+        self.assertTrue(os.path.isfile(contributing_path))
+        self.assertTrue(os.path.isfile(template_path))
+        with open(contributing_path, "r") as stream:
+            contributing = stream.read()
+        with open(template_path, "r") as stream:
+            template = stream.read()
+        required_contributing = (
+            "no Revit write transactions",
+            "no network access or telemetry",
+            "default IronPython compatibility",
+            "NOT_ESTIMATOR_VALIDATED",
+            "Issue #2",
+        )
+        for text in required_contributing:
+            self.assertIn(text, contributing)
+        required_template = (
+            "No Revit write transaction",
+            "No network access",
+            "Offline doctor passes",
+            "live-validation report",
+            "PRODUCTION_READY=true",
+        )
+        for text in required_template:
+            self.assertIn(text, template)
+
 
 if __name__ == "__main__":
     unittest.main()
